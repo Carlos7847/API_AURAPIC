@@ -1,0 +1,45 @@
+// /**
+//  * Códigos de error centralizados para la aplicación.
+//  * Evita magic strings y facilita cambios globales.
+//  *
+//  * Estructura: MÓDULO_SUBDOMINIO_ERROR
+//  * Ejemplo: AUTH_USER_ALREADY_EXISTS, AUTH_INVALID_CREDENTIALS
+//  */
+
+// export const APP_ERROR_CODES = {
+//   // Auth - User
+//   AUTH_USER_ALREADY_EXISTS: 'AUTH_USER_ALREADY_EXISTS',
+//   AUTH_USER_NOT_FOUND: 'AUTH_USER_NOT_FOUND',
+//   AUTH_INVALID_CREDENTIALS: 'AUTH_INVALID_CREDENTIALS',
+//   AUTH_EMAIL_NOT_VERIFIED: 'AUTH_EMAIL_NOT_VERIFIED',
+//   AUTH_ACCOUNT_SUSPENDED: 'AUTH_ACCOUNT_SUSPENDED',
+//   AUTH_ACCOUNT_LOCKED: 'AUTH_ACCOUNT_LOCKED',
+
+//   // Auth - Token
+//   AUTH_TOKEN_INVALID: 'AUTH_TOKEN_INVALID',
+//   AUTH_TOKEN_EXPIRED: 'AUTH_TOKEN_EXPIRED',
+//   AUTH_TOKEN_REUSE_DETECTED: 'AUTH_TOKEN_REUSE_DETECTED',
+
+//   // Auth - Password
+//   AUTH_PASSWORD_WEAK: 'AUTH_PASSWORD_WEAK',
+//   AUTH_PASSWORD_RESET_TOKEN_EXPIRED: 'AUTH_PASSWORD_RESET_TOKEN_EXPIRED',
+
+//   // Auth - TFA
+//   AUTH_TFA_REQUIRED: 'AUTH_TFA_REQUIRED',
+//   AUTH_TFA_CODE_INVALID: 'AUTH_TFA_CODE_INVALID',
+
+//   // Auth - Session
+//   AUTH_SESSION_NOT_FOUND: 'AUTH_SESSION_NOT_FOUND',
+//   AUTH_SESSION_EXPIRED: 'AUTH_SESSION_EXPIRED',
+
+//   // Email
+//   EMAIL_VERIFICATION_TOKEN_EXPIRED: 'EMAIL_VERIFICATION_TOKEN_EXPIRED',
+//   EMAIL_SEND_FAILED: 'EMAIL_SEND_FAILED',
+// } as const;
+
+// /**
+//  * Tipo derivado de los códigos para type-safety
+//  * Uso: type ErrorCode = typeof APP_ERROR_CODES[keyof typeof APP_ERROR_CODES];
+//  */
+// export type AppErrorCode =
+//   (typeof APP_ERROR_CODES)[keyof typeof APP_ERROR_CODES];

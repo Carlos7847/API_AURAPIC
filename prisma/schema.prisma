@@ -1,0 +1,129 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPPORT
+}
+
+enum UserStatus {
+  ACTIVE
+  PENDING // Email no verificado
+  SUSPENDED // Baneado temporalmente
+  DELETED // Soft delete
+}
+
+enum AuthProvider {
+  EMAIL
+  GOOGLE
+  GITHUB
+  APPLE
+}
+
+model User {
+  id       String  @id @default(cuid())
+  email    String  @unique
+  fullName String?
+
+  // Control de Acceso y Estado
+  role   UserRole   @default(USER)
+  status UserStatus @default(PENDING)
+
+  // Verificación y Seguridad
+  emailVerifiedAt DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // Soft Delete
+
+  // Relaciones
+  credentials AuthCredential[]
+  sessions    Session[]
+
+  // Logs
+  auditLogs AuditLog[]
+
+  @@index([email])
+}
+
+model AuthCredential {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  provider       AuthProvider
+  providerUserId String
+  // Para EMAIL, providerUserId = email. Para Google, providerUserId = google_id.
+
+  passwordHash String? // Solo para provider = EMAIL
+
+  // Se guarda el hash del token
+  passwordResetTokenHash String?   @unique
+  passwordResetExpiresAt DateTime?
+
+  emailVerificationTokenHash String?   @unique
+  emailVerificationExpiresAt DateTime?
+
+  // MFA / 2FA 
+  tfaEnabled       Boolean  @default(false)
+  tfaSecret        String? // ENCRIPTADO AES-256
+  tfaRecoveryCodes String[] // ENCRIPTADO
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Un usuario no puede tener dos credenciales del mismo proveedor
+  @@unique([provider, providerUserId])
+  // Un usuario solo debe tener una credencial de cada tipo (ej: solo un google, solo una password)
+  @@unique([userId, provider])
+}
+
+model Session {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenHash String @unique // Hash SHA256
+
+  // para detectar anomalías
+  deviceInfo String? // "Chrome on MacOS"
+  ipAddress  String?
+  userAgent  String?
+  location   String? // GeoIP
+
+  // Rotation & Expiry
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+  lastActiveAt DateTime @default(now())
+
+  // Revocación y Rotación
+  revokedAt    DateTime?
+  replacedById String? // Family Tree para detección de robo
+
+  @@index([userId])
+  @@index([expiresAt]) // Vital para el CRON de limpieza
+}
+
+// Auditoría de Seguridad
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String // LOGIN, LOGIN_FAILED, PASSWORD_CHANGE, 2FA_ENABLE
+  ip        String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+}

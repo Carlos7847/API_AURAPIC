@@ -6,7 +6,7 @@ export interface CreateAuditLogDto {
   userId?: string;
   action: AuditAction;
   ip?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export class AuditService {

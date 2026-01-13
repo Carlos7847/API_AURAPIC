@@ -52,11 +52,52 @@ model User {
   // Relaciones
   credentials AuthCredential[]
   sessions    Session[]
+  imageAssets ImageAsset[]
+  jobs        Job[]
 
   // Logs
-  auditLogs AuditLog[]
+  // Logs
+  auditLogs    AuditLog[]
+  subscription Subscription?
 
   @@index([email])
+}
+
+model Subscription {
+  id                   String    @id @default(cuid())
+  userId               String    @unique
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                 String    @default("FREE")
+  status               String    @default("ACTIVE") // ACTIVE, CANCELLED, PAST_DUE
+  creditsRemaining     Int       @default(10) // Free tier starts with 10 credits
+  currentPeriodStart   DateTime  @default(now())
+  currentPeriodEnd     DateTime?
+  stripeCustomerId     String?
+  stripeSubscriptionId String?   @unique
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+}
+
+model PromptTemplate {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  template  String // "A professional e-commerce shot of {{product}} with {{lighting}} lighting..."
+  category  String? // "E-commerce", "Portrait"
+  variables Json? // ["product", "lighting"]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Memory {
+  id        String   @id @default(cuid())
+  ownerType String // "USER", "JOB", "GLOBAL"
+  ownerId   String? // userId or jobId
+  content   String // The text content
+  embedding Float[] // Vector fallback (standard array)
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([ownerType, ownerId])
 }
 
 model AuthCredential {
@@ -126,4 +167,60 @@ model AuditLog {
   ip        String?
   metadata  Json?
   createdAt DateTime @default(now())
+}
+
+model ImageAsset {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  s3Key     String   @unique // Clave completa en S3
+  url       String
+  kind      String   @default("input") // input | output | thumbnail
+  width     Int?
+  height    Int?
+  sizeBytes Int?
+  createdAt DateTime @default(now())
+
+  // Relación inversa: si es output, se vincula a JobResult
+  jobResult JobResult?
+
+  @@index([userId])
+  @@index([kind])
+}
+
+model Job {
+  id         String     @id @default(cuid())
+  userId     String
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  imageId    String? // Referencia a ImageAsset de entrada
+  mode       String // e-commerce-pro, portrait, etc
+  status     String     @default("queued") // queued, processing, completed, failed
+  prompt     String?
+  promptVars Json?
+  meta       Json? // adicional
+  attempts   Int        @default(0)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  result     JobResult?
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model JobResult {
+  id        String      @id @default(cuid())
+  jobId     String      @unique
+  job       Job         @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  imageId   String?     @unique
+  image     ImageAsset? @relation(fields: [imageId], references: [id], onDelete: SetNull)
+  url       String // URL del resultado en S3
+  width     Int?
+  height    Int?
+  sizeBytes Int?
+  metadata  Json? // Datos del proceso (modelo usado, tiempo, etc)
+  createdAt DateTime    @default(now())
+
+  @@index([jobId])
+  @@index([imageId])
 }

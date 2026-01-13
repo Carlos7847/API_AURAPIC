@@ -27,11 +27,12 @@ import { JwtStrategy } from './infrastructure/strategies/jwt.strategy';
 import { EnvironmentConfigModule } from 'src/shared/config/infrastructure/environment-config.module';
 import { ResetPasswordUseCase } from './application/use-cases/reset-password.use-case';
 import { ForgotPasswordUseCase } from './application/use-cases/forgot-password.use-case';
-import { SharedModule } from 'src/shared/shared.module';
 import { EmailServicePort } from 'src/shared/email/domain/ports/email.service.port';
 import { DateServicePort } from 'src/shared/date/domain/date.service.port';
 import { EnvironmentConfigService } from 'src/shared/config/infrastructure/environment-config.service';
 import { VerifyEmailUseCase } from './application/use-cases/verify-email.use-case';
+import { EmailModule } from 'src/shared/email/email.module';
+import { DateModule } from 'src/shared/date/date.module';
 
 @Module({
   imports: [
@@ -41,7 +42,8 @@ import { VerifyEmailUseCase } from './application/use-cases/verify-email.use-cas
       signOptions: { expiresIn: '1h' },
     }),
     EnvironmentConfigModule,
-    SharedModule,
+    EmailModule,
+    DateModule,
   ],
   controllers: [AuthController],
   providers: [

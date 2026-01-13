@@ -4,7 +4,7 @@ export interface AuditLogData {
   userId?: string;
   action: AuditAction;
   ip?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export abstract class AuditLogRepositoryPort {

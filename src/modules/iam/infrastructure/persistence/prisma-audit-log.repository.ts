@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/shared/persistence/prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import {
   AuditLogRepositoryPort,
   AuditLogData,
@@ -15,7 +16,7 @@ export class PrismaAuditLogRepository implements AuditLogRepositoryPort {
         userId: data.userId,
         action: data.action,
         ip: data.ip,
-        metadata: data.metadata || {},
+        metadata: (data.metadata || {}) as Prisma.InputJsonValue,
       },
     });
   }

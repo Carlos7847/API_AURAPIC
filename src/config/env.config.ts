@@ -24,6 +24,22 @@ const envSchema = z.object({
   MAIL_FROM: z.string().default('"No Reply" <noreply@gmail.com>'),
 
   FRONTEND_URL: z.string().url().default('http://localhost:3000'),
+
+  // AWS S3
+  AWS_REGION: z.string().default('us-east-1'),
+  AWS_ACCESS_KEY_ID: z.string().min(1),
+  AWS_SECRET_ACCESS_KEY: z.string().min(1),
+  S3_BUCKET: z.string().min(1),
+  S3_PRESIGNED_URL_EXPIRY: z.coerce.number().default(300), // 5 min default
+
+  // Redis & Worker
+  REDIS_HOST: z.string().default('localhost'),
+  REDIS_PORT: z.coerce.number().default(6379),
+  ENABLE_WORKER: z
+    .string()
+    .transform((val) => val === 'true')
+    .optional()
+    .default(false), // Or boolean if dotenv expansion handles it, but usually strings from .env
 });
 
 export type EnvVars = z.infer<typeof envSchema>;

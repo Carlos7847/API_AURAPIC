@@ -3,12 +3,18 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './shared/persistence/prisma/prisma.module';
 import { IamModule } from './modules/iam/iam.module';
+import { UploadsModule } from './modules/uploads/uploads.module';
+import { JobsModule } from './modules/jobs/jobs.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LoggerModule } from './shared/logger/logger.module';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { AllExceptionsFilter } from './shared/filters/all-exceptions.filter';
 import { EnvVars, validate } from './config/env.config';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { BullModule } from '@nestjs/bullmq';
+import { EnvironmentConfigService } from './shared/config/infrastructure/environment-config.service';
+import { EnvironmentConfigModule } from './shared/config/infrastructure/environment-config.module';
 
 @Module({
   imports: [
@@ -16,6 +22,19 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
     LoggerModule,
     PrismaModule,
     IamModule,
+    UploadsModule,
+    JobsModule,
+    AdminModule,
+    BullModule.forRootAsync({
+      imports: [EnvironmentConfigModule],
+      inject: [EnvironmentConfigService],
+      useFactory: (config: EnvironmentConfigService) => ({
+        connection: {
+          host: config.getRedisHost(),
+          port: config.getRedisPort(),
+        },
+      }),
+    }),
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

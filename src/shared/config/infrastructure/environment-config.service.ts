@@ -4,10 +4,13 @@ import { IDatabaseConfig } from '../domain/database.interface';
 import { IJwtConfig } from '../domain/jwt.interface';
 import { IAppConfig } from '../domain/app.interface';
 import { EnvVars } from '../../../config/env.config';
+import { IAwsConfig } from '../domain/aws.interface';
+
+import { IRedisConfig } from './redis.config.interface';
 
 @Injectable()
 export class EnvironmentConfigService
-  implements IDatabaseConfig, IJwtConfig, IAppConfig
+  implements IDatabaseConfig, IJwtConfig, IAppConfig, IAwsConfig, IRedisConfig
 {
   constructor(private readonly configService: ConfigService<EnvVars>) {}
 
@@ -65,5 +68,49 @@ export class EnvironmentConfigService
   }
   getFrontendUrl(): string {
     return this.configService.getOrThrow('FRONTEND_URL', { infer: true });
+  }
+
+  // --- AWS S3 ---
+  getAwsRegion(): string {
+    return this.configService.getOrThrow('AWS_REGION', { infer: true });
+  }
+
+  getAwsAccessKeyId(): string {
+    return this.configService.getOrThrow('AWS_ACCESS_KEY_ID', { infer: true });
+  }
+
+  getAwsSecretAccessKey(): string {
+    return this.configService.getOrThrow('AWS_SECRET_ACCESS_KEY', {
+      infer: true,
+    });
+  }
+
+  getS3Bucket(): string {
+    return this.configService.getOrThrow('S3_BUCKET', { infer: true });
+  }
+
+  getS3PresignedUrlExpiry(): number {
+    return this.configService.getOrThrow('S3_PRESIGNED_URL_EXPIRY', {
+      infer: true,
+    });
+  }
+
+  getRedisHost(): string {
+    return this.configService.getOrThrow('REDIS_HOST', { infer: true });
+  }
+
+  getRedisPort(): number {
+    return this.configService.getOrThrow('REDIS_PORT', { infer: true });
+  }
+
+  getEnableWorker(): boolean {
+    return this.configService.get('ENABLE_WORKER', { infer: true }) ?? false;
+  }
+
+  /**
+   * Método genérico para obtener cualquier variable de entorno
+   */
+  getOrThrow<K extends keyof EnvVars>(key: K): EnvVars[K] {
+    return this.configService.getOrThrow(key, { infer: true });
   }
 }

@@ -7,12 +7,12 @@ import {
 import { User } from 'src/modules/iam/domain/entities/user.entity';
 import { UserRole } from 'src/modules/iam/domain/enums/user-role.enum';
 import { UserStatus } from 'src/modules/iam/domain/enums/user-status.enum';
-import { ERROR_MESSAGES } from '../../constants/mapper.constants';
+import { InvalidUserDataError } from '../../../domain/errors/user.errors';
 
 export class UserMapper {
   private static mapRoleToPrisma(role: UserRole): PrismaUserRole {
     if (!Object.values(UserRole).includes(role)) {
-      throw new Error(`${ERROR_MESSAGES.UNSUPPORTED_ROLE}: ${role}`);
+      throw new InvalidUserDataError('role', role);
     }
     switch (role) {
       case UserRole.USER:
@@ -22,9 +22,7 @@ export class UserMapper {
       case UserRole.SUPPORT:
         return PrismaUserRole.SUPPORT;
       default:
-        throw new Error(
-          `${ERROR_MESSAGES.UNSUPPORTED_ROLE}: ${role as string}`,
-        );
+        throw new InvalidUserDataError('role', role as string);
     }
   }
 
@@ -39,9 +37,7 @@ export class UserMapper {
       case UserStatus.DELETED:
         return PrismaUserStatus.DELETED;
       default:
-        throw new Error(
-          `${ERROR_MESSAGES.UNSUPPORTED_STATUS}: ${status as string}`,
-        );
+        throw new InvalidUserDataError('status', status as string);
     }
   }
 
@@ -54,9 +50,7 @@ export class UserMapper {
       case PrismaUserRole.SUPPORT:
         return UserRole.SUPPORT;
       default:
-        throw new Error(
-          `${ERROR_MESSAGES.UNSUPPORTED_PRISMA_ROLE}: ${role as string}`,
-        );
+        throw new InvalidUserDataError('prisma role', role as string);
     }
   }
 
@@ -71,9 +65,7 @@ export class UserMapper {
       case PrismaUserStatus.DELETED:
         return UserStatus.DELETED;
       default:
-        throw new Error(
-          `${ERROR_MESSAGES.UNSUPPORTED_PRISMA_STATUS}: ${status as string}`,
-        );
+        throw new InvalidUserDataError('prisma status', status as string);
     }
   }
 

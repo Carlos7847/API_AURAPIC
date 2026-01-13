@@ -3,5 +3,7 @@ onlyBuiltDependencies:
   - '@prisma/client'
   - '@prisma/engines'
   - argon2
+  - aws-sdk
+  - msgpackr-extract
   - prisma
   - unrs-resolver

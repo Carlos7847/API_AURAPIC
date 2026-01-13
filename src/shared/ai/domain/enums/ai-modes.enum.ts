@@ -1,0 +1,6 @@
+export enum AiGenerationMode {
+  ECOMMERCE_PRO = 'ECOMMERCE_PRO',
+  PORTRAIT_PRO = 'PORTRAIT_PRO',
+  CREATIVE = 'CREATIVE',
+  RESTORE = 'RESTORE',
+}

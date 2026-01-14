@@ -18,6 +18,6 @@ export interface BullJobData {
 export interface JobProcessResult {
   jobId: string;
   status: JobStatus;
-  resultUrl: string;
+  resultUrl: string | null;
   metadata?: Record<string, unknown>;
 }

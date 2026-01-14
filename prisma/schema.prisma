@@ -59,6 +59,7 @@ model User {
   // Logs
   auditLogs    AuditLog[]
   subscription Subscription?
+  payments     Payment[]
 
   @@index([email])
 }
@@ -98,6 +99,126 @@ model Memory {
   createdAt DateTime @default(now())
 
   @@index([ownerType, ownerId])
+}
+
+// Payment Processing Models (Payment Provider Agnostic)
+
+// Payment providers available (MercadoPago, Culqi, Crypto, etc.)
+model PaymentProvider {
+  id       String  @id @default(cuid())
+  code     String  @unique // "mercadopago", "culqi", "crypto"
+  name     String // "Mercado Pago", "Culqi", "Criptomonedas"
+  isActive Boolean @default(true)
+
+  // UI/UX metadata (NOT credentials - those go in .env)
+  displayConfig Json? @db.JsonB // Logo, description, fees, supported currencies, etc.
+
+  // Circuit Breaker state
+  healthStatus    String    @default("HEALTHY") // HEALTHY, DEGRADED, DOWN
+  lastHealthCheck DateTime?
+  failureCount    Int       @default(0)
+  lastFailureAt   DateTime?
+
+  // Relations
+  payments Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([healthStatus])
+  @@index([displayConfig], type: Gin)
+}
+
+model Payment {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Payment Provider relation
+  providerId String
+  provider   PaymentProvider @relation(fields: [providerId], references: [id])
+
+  // Payment Provider specific
+  preferenceId        String  @unique // Provider Preference/Session ID
+  providerPaymentId   String? @unique // Provider Payment ID (once paid)
+  providerCollectorId String? // Payment provider collector (seller) ID
+
+  // Payment details
+  amount       Float
+  currency     String  @default("PEN") // Peruvian Sol
+  status       String  @default("PENDING") // PENDING, APPROVED, REJECTED, CANCELLED, REFUNDED
+  statusDetail String? // Additional status info from provider
+
+  // Credits
+  creditsAmount Int // How many credits this purchase grants
+  packageId     String?
+  package       CreditPackage? @relation(fields: [packageId], references: [id])
+
+  // Metadata
+  description       String?
+  externalReference String? // Custom reference
+  paymentMethodId   String? // visa, mastercard, pago_efectivo, etc.
+  paymentTypeId     String? // credit_card, debit_card, ticket, etc.
+  idempotencyKey    String? @unique // NEW: For duplicate prevention
+  metadata          Json? // Additional provider metadata
+
+  // Timestamps
+  approvedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([providerId])
+  @@index([providerPaymentId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model CreditPackage {
+  id          String  @id @default(cuid())
+  name        String  @unique // "Starter", "Pro", "Business"
+  credits     Int // Number of credits
+  price       Float // Price in currency
+  currency    String  @default("PEN")
+  active      Boolean @default(true)
+  description String?
+  metadata    Json? // Additional package details
+
+  // Relations
+  payments Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active])
+}
+
+model WebhookEvent {
+  id String @id @default(cuid())
+
+  // Webhook identification
+  providerEventId String? @unique // Payment provider event ID
+  action          String // payment.created, payment.updated
+  type            String? // payment, subscription, etc.
+
+  // Processing
+  processed   Boolean   @default(false)
+  processedAt DateTime?
+  attempts    Int       @default(0)
+
+  // Data
+  payload   Json // Raw webhook payload
+  paymentId String? // Linked payment ID if applicable
+
+  // Error tracking
+  error String?
+
+  createdAt DateTime @default(now())
+
+  @@index([processed])
+  @@index([providerEventId])
+  @@index([createdAt])
 }
 
 model AuthCredential {

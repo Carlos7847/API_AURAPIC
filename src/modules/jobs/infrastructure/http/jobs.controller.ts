@@ -20,6 +20,7 @@ import { CancelJobUseCase } from '../../application/use-cases/cancel-job.use-cas
 import { CreateJobDto } from '../../application/dtos/create-job.dto';
 import { JobResponseDto } from '../../application/dtos/job.response.dto';
 import { JwtAuthGuard } from '../../../iam/infrastructure/guards/jwt-auth.guard';
+import { CreditGuard } from '../../../billing/infrastructure/guards/credit.guard';
 import { JobStatus } from '../../domain/enums/job-status.enum';
 import { LoggerPort } from 'src/shared/logger/domain/logger.port';
 import { JobResponseMapper } from './mappers/job-response.mapper';
@@ -76,6 +77,7 @@ export class JobsController {
   @ApiResponse({ status: 400, description: 'Invalid request data' })
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @UseGuards(CreditGuard)
   async create(
     @Req() req: AuthenticatedRequest,
     @Body() dto: CreateJobDto,

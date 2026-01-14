@@ -9,8 +9,6 @@ import { LoggerPort } from 'src/shared/logger/domain/logger.port';
 
 @Injectable()
 export class PrismaJobRepository implements JobRepositoryPort {
-  private readonly DEFAULT_MAX_ATTEMPTS = 3;
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly logger: LoggerPort,
@@ -22,18 +20,14 @@ export class PrismaJobRepository implements JobRepositoryPort {
       'id' | 'createdAt' | 'updatedAt' | 'status' | 'attempts' | 'maxAttempts'
     >,
   ): Promise<Job> {
-    const jobProps: JobProps = {
-      id: uuidv4(),
-      ...props,
-      status: JobStatus.QUEUED,
-      attempts: 0,
-      maxAttempts: this.DEFAULT_MAX_ATTEMPTS,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    // Delegate ID generation and defaults to Domain Entity logic
+    const userId = props.userId;
+    const imageId = props.imageId;
+    const mode = props.mode;
+    const prompt = props.prompt;
+    const meta = props.meta;
 
-    // Create domain entity
-    const jobEntity = Job.create(jobProps);
+    const jobEntity = Job.create(userId, imageId, mode, uuidv4(), prompt, meta);
 
     // Map to persistence and save
     const jobModel = await this.prisma.job.create({

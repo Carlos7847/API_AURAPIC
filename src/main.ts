@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import {
@@ -9,9 +10,24 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { EnvironmentConfigService } from './shared/config/infrastructure/environment-config.service';
+import * as Sentry from '@sentry/nestjs';
+import { nodeProfilingIntegration } from '@sentry/profiling-node';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.SENTRY_ENVIRONMENT || 'development',
+    enabled: process.env.SENTRY_ENABLED === 'true',
+    integrations: [nodeProfilingIntegration()],
+    tracesSampleRate: 1.0, // Capture 100% of transactions for now
+    profilesSampleRate: 1.0, // Profile 100% of sampled transactions
+  });
+
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true, // Buffer logs until Pino is attached
+  });
+
+  app.useLogger(app.get(Logger));
 
   const configService = app.get(EnvironmentConfigService);
 

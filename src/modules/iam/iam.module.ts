@@ -33,6 +33,8 @@ import { EnvironmentConfigService } from 'src/shared/config/infrastructure/envir
 import { VerifyEmailUseCase } from './application/use-cases/verify-email.use-case';
 import { EmailModule } from 'src/shared/email/email.module';
 import { DateModule } from 'src/shared/date/date.module';
+import { BillingModule } from '../billing/billing.module';
+import { SubscriptionRepositoryPort } from '../billing/domain/ports/subscription.repository.port';
 
 @Module({
   imports: [
@@ -44,6 +46,7 @@ import { DateModule } from 'src/shared/date/date.module';
     EnvironmentConfigModule,
     EmailModule,
     DateModule,
+    BillingModule,
   ],
   controllers: [AuthController],
   providers: [
@@ -85,6 +88,7 @@ import { DateModule } from 'src/shared/date/date.module';
         emailService: EmailServicePort,
         dateService: DateServicePort,
         appConfig: EnvironmentConfigService,
+        subscriptionRepository: SubscriptionRepositoryPort,
       ) => {
         return new RegisterUserUseCase(
           userRepo,
@@ -93,6 +97,7 @@ import { DateModule } from 'src/shared/date/date.module';
           emailService,
           dateService,
           appConfig,
+          subscriptionRepository,
         );
       },
       inject: [
@@ -102,6 +107,7 @@ import { DateModule } from 'src/shared/date/date.module';
         EmailServicePort,
         DateServicePort,
         EnvironmentConfigService,
+        SubscriptionRepositoryPort,
       ],
     },
     {

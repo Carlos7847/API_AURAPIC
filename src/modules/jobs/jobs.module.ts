@@ -73,6 +73,7 @@ import { JobsProcessor } from './infrastructure/http/jobs.processor';
         queueService: QueueServicePort,
         aiProcessor: AiProcessorServicePort,
         deductCredit: DeductCreditUseCase,
+        refundCredit: RefundCreditUseCase,
         logger: LoggerPort,
       ) => {
         return new CreateJobUseCase(
@@ -80,6 +81,7 @@ import { JobsProcessor } from './infrastructure/http/jobs.processor';
           queueService,
           aiProcessor,
           deductCredit,
+          refundCredit,
           logger,
         );
       },
@@ -88,6 +90,7 @@ import { JobsProcessor } from './infrastructure/http/jobs.processor';
         QueueServicePort,
         AiProcessorServicePort,
         DeductCreditUseCase,
+        RefundCreditUseCase,
         LoggerPort,
       ],
     },

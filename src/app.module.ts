@@ -6,8 +6,10 @@ import { IamModule } from './modules/iam/iam.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LoggerModule } from './shared/logger/logger.module';
+// import { LoggerModule } from 'nestjs-pino';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { AllExceptionsFilter } from './shared/filters/all-exceptions.filter';
 import { EnvVars, validate } from './config/env.config';
@@ -25,6 +27,7 @@ import { EnvironmentConfigModule } from './shared/config/infrastructure/environm
     UploadsModule,
     JobsModule,
     AdminModule,
+    PaymentsModule,
     BullModule.forRootAsync({
       imports: [EnvironmentConfigModule],
       inject: [EnvironmentConfigService],

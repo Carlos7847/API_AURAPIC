@@ -2,10 +2,7 @@ import {
   InsufficientCreditsError,
   SubscriptionNotActiveError,
 } from '../errors/billing.errors';
-
-// Business Rules for Credits
-export const FREE_TIER_INITIAL_CREDITS = 10;
-export const PREMIUM_TIER_INITIAL_CREDITS = 100;
+import { SUBSCRIPTION_CONFIG } from '../constants/billing.constants';
 
 export enum SubscriptionPlan {
   FREE = 'FREE',
@@ -89,11 +86,7 @@ export class Subscription {
     }
 
     if (this.props.creditsRemaining < amount) {
-      throw new InsufficientCreditsError(
-        this.userId,
-        this.props.creditsRemaining,
-        amount,
-      );
+      throw new InsufficientCreditsError(amount, this.props.creditsRemaining);
     }
     this.props.creditsRemaining -= amount;
     this.props.updatedAt = new Date();
@@ -117,7 +110,7 @@ export class Subscription {
       userId,
       plan: SubscriptionPlan.FREE,
       status: SubscriptionStatus.ACTIVE,
-      creditsRemaining: FREE_TIER_INITIAL_CREDITS,
+      creditsRemaining: SUBSCRIPTION_CONFIG.FREE_TIER_CREDITS,
       currentPeriodStart: now,
       currentPeriodEnd: null, // No end date for free tier
       stripeCustomerId: null,

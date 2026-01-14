@@ -107,10 +107,46 @@ export class EnvironmentConfigService
     return this.configService.get('ENABLE_WORKER', { infer: true }) ?? false;
   }
 
+  // --- MERCADO PAGO ---
+  getMercadoPagoAccessToken(): string {
+    return this.configService.getOrThrow('MP_ACCESS_TOKEN', { infer: true });
+  }
+
+  getMercadoPagoNotificationUrl(): string {
+    const apiUrl = this.configService.getOrThrow('API_URL', { infer: true });
+    return `${apiUrl}/payments/webhook/mercadopago`;
+  }
+
+  getMercadoPagoWebhookSecret(): string {
+    return this.configService.getOrThrow('MERCADOPAGO_WEBHOOK_SECRET', {
+      infer: true,
+    });
+  }
+
   /**
    * Método genérico para obtener cualquier variable de entorno
    */
   getOrThrow<K extends keyof EnvVars>(key: K): EnvVars[K] {
     return this.configService.getOrThrow(key, { infer: true });
+  }
+
+  // --- GEMINI AI ---
+  getGeminiApiKey(): string {
+    return this.configService.getOrThrow('GEMINI_API_KEY', { infer: true });
+  }
+
+  getGeminiModel(): string {
+    return (
+      this.configService.get('GEMINI_MODEL', { infer: true }) ||
+      'gemini-2.0-flash-exp'
+    );
+  }
+
+  getGeminiMaxTokens(): number {
+    return this.configService.get('GEMINI_MAX_TOKENS', { infer: true }) || 2048;
+  }
+
+  getGeminiTemperature(): number {
+    return this.configService.get('GEMINI_TEMPERATURE', { infer: true }) || 0.7;
   }
 }

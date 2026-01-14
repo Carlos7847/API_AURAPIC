@@ -12,10 +12,10 @@ E-commerce businesses and content creators struggle to produce high-quality prod
 
 ## ✨ Key Features
 
-- **🎨 Multiple AI Modes**: E-commerce Pro, Portrait, Lifestyle (more coming)
-- **💳 Credit-Based Billing**: Pay-as-you-go model with transparent pricing
+- **🎨 Multiple AI Modes**: E-commerce Pro, Portrait, Lifestyle (Powered by Gemini 2.0)
+- **💳 Multi-Provider Payments**: Support for Mercado Pago, Culqi, and Crypto (Strategy Pattern)
 - **🔒 Secure & Scalable**: Enterprise-grade authentication and async processing
-- **🧙 "Wizard of Oz" MVP**: Manual fulfillment with automated AI pipeline ready
+- **👁️ Deep Observability**: High-performance logging (Pino) and Error Tracking (Sentry)
 - **📊 Admin Dashboard**: Real-time job management and quality control
 
 ## 🏗️ Architecture
@@ -49,8 +49,10 @@ graph TB
 | **Database**   | PostgreSQL 16 + Prisma ORM          |
 | **Queue**      | BullMQ + Redis                      |
 | **Storage**    | AWS S3 (presigned URLs)             |
-| **AI**         | Google Gemini (Vertex AI)           |
+| **AI**         | Google Gemini 2.0 (Vertex AI)       |
 | **Auth**       | JWT + Passport                      |
+| **Payments**   | Mercado Pago, Culqi                 |
+| **Logs**       | Pino (JSON) + Sentry                |
 | **Validation** | class-validator + class-transformer |
 
 ## 📦 Project Structure
@@ -76,6 +78,7 @@ See individual module READMEs for detailed documentation:
 - [IAM Module](./src/modules/iam/README.md)
 - [Jobs Module](./src/modules/jobs/README.md)
 - [Billing Module](./src/modules/billing/README.md)
+- [Payments Module](./src/modules/payments/README.md)
 - [Admin Module](./src/modules/admin/README.md)
 - [Uploads Module](./src/modules/uploads/README.md)
 
@@ -148,15 +151,18 @@ pnpm start:prod
 
 ## 🌍 Environment Variables
 
-| Variable               | Description           | Example            |
-| :--------------------- | :-------------------- | :----------------- |
-| `DATABASE_URL`         | PostgreSQL connection | `postgresql://...` |
-| `REDIS_HOST`           | Redis hostname        | `localhost`        |
-| `REDIS_PORT`           | Redis port            | `6379`             |
-| `AWS_REGION`           | S3 region             | `us-east-1`        |
-| `AWS_S3_BUCKET`        | S3 bucket name        | `my-bucket`        |
-| `GOOGLE_CLOUD_PROJECT` | GCP project ID        | `my-project`       |
-| `JWT_SECRET`           | JWT signing key       | `supersecret`      |
+| Variable               | Description               | Example            |
+| :--------------------- | :------------------------ | :----------------- |
+| `DATABASE_URL`         | PostgreSQL connection     | `postgresql://...` |
+| `REDIS_HOST`           | Redis hostname            | `localhost`        |
+| `REDIS_PORT`           | Redis port                | `6379`             |
+| `AWS_REGION`           | S3 region                 | `us-east-1`        |
+| `AWS_S3_BUCKET`        | S3 bucket name            | `my-bucket`        |
+| `GOOGLE_CLOUD_PROJECT` | GCP project ID            | `my-project`       |
+| `MP_ACCESS_TOKEN`      | Mercado Pago Access Token | `TEST-...`         |
+| `GEMINI_API_KEY`       | Google AI Studio Key      | `AIza...`          |
+| `SENTRY_DSN`           | Sentry Data Source Name   | `https://...`      |
+| `JWT_SECRET`           | JWT signing key           | `supersecret`      |
 
 ## 📝 License
 

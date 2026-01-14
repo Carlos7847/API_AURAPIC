@@ -4,6 +4,7 @@ import { AiProcessorServicePort } from 'src/shared/ai/domain/ports/ai-processor.
 import { CreateJobDto } from '../dtos/create-job.dto';
 import { InvalidJobModeError } from '../../domain/errors/job.exceptions';
 import { DeductCreditUseCase } from 'src/modules/billing/application/use-cases/deduct-credit.use-case';
+import { RefundCreditUseCase } from 'src/modules/billing/application/use-cases/refund-credit.use-case';
 import { LoggerPort } from 'src/shared/logger/domain/logger.port';
 import { Job } from '../../domain/entities/job.entity';
 
@@ -22,29 +23,18 @@ export class CreateJobUseCase {
     private readonly queueService: QueueServicePort,
     private readonly aiProcessor: AiProcessorServicePort,
     private readonly deductCredit: DeductCreditUseCase,
+    private readonly refundCredit: RefundCreditUseCase,
     private readonly logger: LoggerPort,
   ) {}
 
   async execute(userId: string, dto: CreateJobDto): Promise<Job> {
-    // 1. Validar modo
-    if (!this.aiProcessor.isModeSupported(dto.mode)) {
-      throw new InvalidJobModeError(dto.mode);
-    }
+    await this.validateAndDeductCredits(userId, dto.mode);
 
     this.logger.debug(
       `Creating job for user ${userId}, mode: ${dto.mode}, image: ${dto.imageId}`,
       CreateJobUseCase.name,
     );
 
-    // 2. Deduct credit BEFORE creating the job (atomic operation)
-    // throw InsufficientCreditsError if user doesn't have credits
-    await this.deductCredit.execute(userId);
-    this.logger.debug(
-      `Credit deducted for user ${userId}`,
-      CreateJobUseCase.name,
-    );
-
-    // 3. Crear job en BD (QUEUED status)
     const job = await this.jobRepository.create({
       userId,
       imageId: dto.imageId,
@@ -52,13 +42,38 @@ export class CreateJobUseCase {
       prompt: dto.prompt,
       meta: dto.meta,
     });
+
+    await this.queueJob(job, userId, dto);
+
+    return job;
+  }
+
+  private async validateAndDeductCredits(
+    userId: string,
+    mode: string,
+  ): Promise<void> {
+    if (!this.aiProcessor.isModeSupported(mode)) {
+      throw new InvalidJobModeError(mode);
+    }
+
+    await this.deductCredit.execute(userId);
     this.logger.debug(
-      `Created job ${job.id}, enqueueing for processing`,
+      `Credit deducted for user ${userId}`,
       CreateJobUseCase.name,
     );
+  }
 
-    // 3. Encolar para procesamiento
+  private async queueJob(
+    job: Job,
+    userId: string,
+    dto: CreateJobDto,
+  ): Promise<void> {
     try {
+      this.logger.debug(
+        `Created job ${job.id}, enqueueing for processing`,
+        CreateJobUseCase.name,
+      );
+
       await this.queueService.enqueue(job.id, {
         imageId: dto.imageId,
         userId,
@@ -66,21 +81,50 @@ export class CreateJobUseCase {
         prompt: dto.prompt,
         meta: dto.meta,
       });
+
+      this.logger.debug(
+        `Job ${job.id} successfully enqueued`,
+        CreateJobUseCase.name,
+      );
     } catch (error) {
       this.logger.error(
-        `Failed to enqueue job ${job.id}`,
+        `Failed to queue job ${job.id}`,
         error instanceof Error ? error.stack : String(error),
         CreateJobUseCase.name,
       );
-      // Job quedó creado pero no fue encolado - puede reintentarse
+
+      // Compensation Logic
+      await this.compensateFailure(job, userId);
+
       throw error;
     }
+  }
 
-    this.logger.debug(
-      `Job ${job.id} successfully enqueued`,
-      CreateJobUseCase.name,
-    );
+  private async compensateFailure(job: Job, userId: string): Promise<void> {
+    try {
+      // 1. Refund credits
+      await this.refundCredit.execute(userId);
+      this.logger.log(
+        `Credits refunded for failed job ${job.id}`,
+        CreateJobUseCase.name,
+      );
 
-    return job;
+      // 2. Mark job as failed
+      job.fail('System error: Failed to queue job');
+
+      // Update status in repository
+      await this.jobRepository.updateStatus(job.id, job.status, {
+        errorMessage: job.errorMessage,
+        completedAt: job.completedAt,
+      });
+    } catch (compensationError) {
+      this.logger.error(
+        `CRITICAL: Failed to compensate job ${job.id}`,
+        compensationError instanceof Error
+          ? compensationError.stack
+          : String(compensationError),
+        CreateJobUseCase.name,
+      );
+    }
   }
 }

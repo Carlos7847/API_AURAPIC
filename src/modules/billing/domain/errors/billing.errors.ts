@@ -1,13 +1,17 @@
 export class InsufficientCreditsError extends Error {
-  constructor(
-    public readonly userId: string,
-    public readonly available: number,
-    public readonly required: number,
-  ) {
+  constructor(required: number, available: number) {
     super(
-      `User ${userId} has insufficient credits. Required: ${required}, Available: ${available}`,
+      `Insufficient credits. Required: ${required}, Available: ${available}`,
     );
     this.name = 'InsufficientCreditsError';
+  }
+}
+
+export class SubscriptionCreationFailedError extends Error {
+  constructor(userId: string, cause?: unknown) {
+    super(`Failed to create subscription for user: ${userId}`);
+    this.name = 'SubscriptionCreationFailedError';
+    this.cause = cause;
   }
 }
 

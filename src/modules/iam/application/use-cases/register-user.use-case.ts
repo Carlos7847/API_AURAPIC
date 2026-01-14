@@ -10,6 +10,9 @@ import { AuthCredentialRepositoryPort } from '../../domain/ports/auth-credential
 import { verifyEmailTemplate } from 'src/shared/email/infrastructure/templates/verify-email.template';
 import * as crypto from 'node:crypto';
 import { IAppConfig } from 'src/shared/config/domain/app.interface';
+import { SubscriptionRepositoryPort } from 'src/modules/billing/domain/ports/subscription.repository.port';
+import { Subscription } from 'src/modules/billing/domain/entities/subscription.entity';
+import { SubscriptionCreationFailedError } from 'src/modules/billing/domain/errors/billing.errors';
 
 export class RegisterUserUseCase {
   constructor(
@@ -19,6 +22,7 @@ export class RegisterUserUseCase {
     private readonly emailService: EmailServicePort,
     private readonly dateService: DateServicePort,
     private readonly appConfig: IAppConfig,
+    private readonly subscriptionRepository: SubscriptionRepositoryPort,
   ) {}
 
   async execute(dto: RegisterUserDto): Promise<{ id: string; email: string }> {
@@ -51,9 +55,19 @@ export class RegisterUserUseCase {
     try {
       await this.sendVerificationEmail(savedUser.email, rawToken);
     } catch (error) {
+      // If email fails, rollback user creation
       await this.userRepository.delete(savedUser.id);
-
       throw error;
+    }
+
+    // Create free subscription with initial credits
+    try {
+      const subscription = Subscription.createFree(savedUser.id, randomUUID());
+      await this.subscriptionRepository.create(subscription);
+    } catch (_error) {
+      // If subscription creation fails, rollback user
+      await this.userRepository.delete(savedUser.id);
+      throw new SubscriptionCreationFailedError(savedUser.id, _error);
     }
 
     return {

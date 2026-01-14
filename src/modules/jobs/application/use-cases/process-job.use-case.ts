@@ -38,17 +38,14 @@ export class ProcessJobUseCase {
     );
 
     try {
-      // 1. Obtener y actualizar estado a PROCESSING
+      // 1. Get Job
       const jobEntity = await this.jobRepository.findById(jobId);
       if (!jobEntity) {
         throw new JobNotFoundError(jobId);
       }
 
-      // Validar si ya está completado o fallido para evitar reprocesamiento innecesario (idempotencia básica)
-      if (
-        jobEntity.status === JobStatus.COMPLETED ||
-        jobEntity.status === JobStatus.FAILED
-      ) {
+      // 2. Idempotency Check
+      if (jobEntity.isFinalState()) {
         this.logger.warn(
           `Job ${jobId} is already ${jobEntity.status}`,
           ProcessJobUseCase.name,
@@ -60,10 +57,11 @@ export class ProcessJobUseCase {
         };
       }
 
-      jobEntity.startProcessing();
+      // 3. Mark as Processing
+      jobEntity.markAsProcessing();
       await this.jobRepository.updateStatus(jobId, JobStatus.PROCESSING);
 
-      // 2. Obtener imagen del repositorio
+      // 4. Get Image Asset
       const imageAsset = await this.imageAssetRepository.findById(
         jobEntity.imageId,
       );
@@ -71,20 +69,31 @@ export class ProcessJobUseCase {
         throw new ImageAssetNotFoundForJobError(jobEntity.imageId);
       }
 
-      // 3. Procesar con IA
+      // 5. AI Processing
       this.logger.debug(
         `Calling AI processor for image ${jobEntity.imageId} with mode ${jobEntity.mode}`,
         ProcessJobUseCase.name,
       );
+
       const { resultImageUrl, metadata } = await this.aiProcessor.processImage({
         imageUrl: imageAsset.url,
-        mode: jobEntity.mode, // Remove cast, string is valid
+        mode: jobEntity.mode,
         prompt: jobEntity.prompt,
         meta: jobEntity.meta,
       });
 
-      // 4. Actualizar estado a COMPLETED
+      // 6. Validate Result
+      if (!resultImageUrl) {
+        const errorMsg =
+          metadata?.processingStatus === 'BLOCKED_SAFETY'
+            ? 'Content blocked by AI safety filters'
+            : 'AI processing returned no result image URL';
+        throw new Error(errorMsg);
+      }
+
+      // 7. Complete Job
       jobEntity.complete(resultImageUrl);
+
       await this.jobRepository.updateStatus(jobId, JobStatus.COMPLETED, {
         resultUrl: resultImageUrl,
         completedAt: jobEntity.completedAt,
@@ -102,61 +111,65 @@ export class ProcessJobUseCase {
         metadata,
       };
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Error processing job ${jobId}:`,
-        error instanceof Error ? error.stack : String(error),
+        `Error processing job ${jobId}: ${errorMessage}`,
         ProcessJobUseCase.name,
       );
-      await this.handleError(jobId, error);
-      throw error; // Re-throw para que el Worker (BullMQ) sepa que falló y maneje sus retries internos de cola si aplica
+
+      // Use case specific error handling logic detached from main flow
+      await this.handleProcessingError(jobId, errorMessage);
+      throw error;
     }
   }
 
-  private async handleError(jobId: string, error: unknown): Promise<void> {
-    // Obtener job actual para verificar intentos
+  /*
+   * Handle errors during processing: retry logic, refunds, etc.
+   */
+  private async handleProcessingError(
+    jobId: string,
+    errorMessage: string,
+  ): Promise<void> {
     const currentJob = await this.jobRepository.findById(jobId);
-    if (!currentJob) {
-      return;
-    }
+    if (!currentJob) return;
 
-    // Incrementar intentos (Dominio)
     currentJob.incrementAttempts();
     await this.jobRepository.incrementAttempts(jobId);
 
-    // Verificar si se alcanzó máximo de intentos (Dominio)
     if (currentJob.isMaxAttemptsExceeded()) {
-      const msg = `Failed after ${currentJob.attempts} attempts: ${error instanceof Error ? error.message : 'Unknown error'}`;
-      currentJob.fail(msg);
+      const completeErrorMsg = `Failed after ${currentJob.attempts} attempts: ${errorMessage}`;
+
+      currentJob.fail(completeErrorMsg);
 
       await this.jobRepository.updateStatus(jobId, JobStatus.FAILED, {
-        errorMessage: msg,
+        errorMessage: completeErrorMsg,
         completedAt: new Date(),
       });
 
-      // Refund credit to user since job failed permanently
-      try {
-        await this.refundCredit.execute(currentJob.userId);
-        this.logger.log(
-          `Credit refunded to user ${currentJob.userId} for failed job ${jobId}`,
-          ProcessJobUseCase.name,
-        );
-      } catch (refundError) {
-        this.logger.error(
-          `Failed to refund credit for user ${currentJob.userId} on job ${jobId}:`,
-          refundError instanceof Error
-            ? refundError.stack
-            : String(refundError),
-          ProcessJobUseCase.name,
-        );
-      }
+      // Refund logic
+      await this.processRefund(currentJob.userId, jobId);
 
-      this.logger.error(
-        `Job ${jobId} exceeded max attempts (${currentJob.attempts}/${currentJob.maxAttempts})`,
-        undefined, // Trace is optional
+      throw new JobMaxAttemptsExceededError(jobId, currentJob.attempts);
+    }
+  }
+
+  private async processRefund(userId: string, jobId: string): Promise<void> {
+    try {
+      await this.refundCredit.execute(userId);
+      this.logger.log(
+        `Credit refunded to user ${userId} for failed job ${jobId}`,
         ProcessJobUseCase.name,
       );
-      // Lanzamos error de dominio específico si se excedieron intentos, el worker capturará esto pero ya el job está FAILED en BD
-      throw new JobMaxAttemptsExceededError(jobId, currentJob.attempts);
+    } catch (refundError) {
+      const msg =
+        refundError instanceof Error
+          ? refundError.message
+          : String(refundError);
+      this.logger.error(
+        `Failed to refund credit for user ${userId} on job ${jobId}: ${msg}`,
+        ProcessJobUseCase.name,
+      );
     }
   }
 }

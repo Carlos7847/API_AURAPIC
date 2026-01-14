@@ -1,9 +1,6 @@
 import { Job as PrismaJobModel, JobResult, Prisma } from '@prisma/client';
-import {
-  Job,
-  JobProps,
-  MAX_JOB_ATTEMPTS,
-} from '../../../domain/entities/job.entity';
+import { Job, JobProps } from '../../../domain/entities/job.entity';
+import { JOB_CONFIG } from '../../../domain/constants/job.constants';
 import { JobStatus } from '../../../domain/enums/job-status.enum';
 
 type PrismaJobWithResult = PrismaJobModel & { result?: JobResult | null };
@@ -19,15 +16,15 @@ export class JobMapper {
       prompt: prismaJob.prompt ?? undefined,
       meta: (prismaJob.meta as Record<string, unknown>) ?? undefined,
       attempts: prismaJob.attempts,
-      maxAttempts: MAX_JOB_ATTEMPTS,
+      maxAttempts: JOB_CONFIG.MAX_ATTEMPTS,
       createdAt: prismaJob.createdAt,
       updatedAt: prismaJob.updatedAt,
       completedAt: prismaJob.result?.createdAt,
       resultUrl: prismaJob.result?.url,
       errorMessage:
-        prismaJob.status === 'failed' ? 'Processing failed' : undefined,
+        prismaJob.status === 'FAILED' ? 'Processing failed' : undefined,
     };
-    return Job.create(props);
+    return Job.fromPersistence(props);
   }
 
   static toPersistence(job: Job): Prisma.JobUncheckedCreateInput {

@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { Prisma } from '@prisma/client';
+import * as Sentry from '@sentry/nestjs';
 
 import { PrismaErrorCodes } from '../persistence/prisma/prisma.constants';
 import {
@@ -104,6 +105,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         this.logger.error(
           `Prisma Error [${exception.code}]: ${exception.message}`,
         );
+        Sentry.captureException(exception);
       }
     }
 
@@ -116,6 +118,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       const errorStack = exception instanceof Error ? exception.stack : '';
 
       this.logger.error(`Unhandled Exception: ${errorMsg}`, errorStack);
+      Sentry.captureException(exception);
 
       // Mantenemos los valores por defecto definidos al inicio
       message = SystemErrorMessages.UNEXPECTED_ERROR;

@@ -39,7 +39,28 @@ const envSchema = z.object({
     .string()
     .transform((val) => val === 'true')
     .optional()
-    .default(false), // Or boolean if dotenv expansion handles it, but usually strings from .env
+    .default(false),
+
+  // Mercado Pago
+  MP_ACCESS_TOKEN: z.string().min(10),
+  MP_NOTIFICATION_URL: z.string().url(),
+  API_URL: z.string().url(), // NEW: For webhook URL generation
+  MERCADOPAGO_WEBHOOK_SECRET: z.string().min(10), // NEW: For signature verification
+
+  // Gemini AI
+  GEMINI_API_KEY: z.string().min(10),
+  GEMINI_MODEL: z.string().optional().default('gemini-2.0-flash-exp'),
+  GEMINI_MAX_TOKENS: z.coerce.number().optional().default(2048),
+  GEMINI_TEMPERATURE: z.coerce.number().optional().default(0.7),
+
+  // Sentry
+  SENTRY_DSN: z.string().url().optional(),
+  SENTRY_ENVIRONMENT: z.string().default('development'),
+  SENTRY_ENABLED: z
+    .string()
+    .transform((val) => val === 'true')
+    .optional()
+    .default(false),
 });
 
 export type EnvVars = z.infer<typeof envSchema>;

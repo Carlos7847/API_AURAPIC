@@ -3,8 +3,7 @@ import {
   InvalidJobDataError,
   JobInvalidStateError,
 } from '../errors/job.exceptions';
-
-export const MAX_JOB_ATTEMPTS = 3;
+import { JOB_CONFIG } from '../constants/job.constants';
 
 export interface JobProps {
   id: string;
@@ -23,6 +22,12 @@ export interface JobProps {
   errorMessage?: string;
 }
 
+/**
+ * Job Domain Entity
+ *
+ * Represents an AI processing job.
+ * Implements Rich Domain Model pattern to encapsulate state transitions and business logic.
+ */
 export class Job {
   constructor(private props: JobProps) {}
 
@@ -70,72 +75,123 @@ export class Job {
     return this.props.errorMessage;
   }
 
-  // Factory Method with Domain Validations
-  static create(props: JobProps): Job {
-    if (!props.userId || props.userId.trim() === '') {
-      throw new InvalidJobDataError('UserId is required');
-    }
-
-    if (!props.imageId || props.imageId.trim() === '') {
-      throw new InvalidJobDataError('ImageId is required');
-    }
-
-    if (!props.mode || props.mode.trim() === '') {
-      throw new InvalidJobDataError('Mode is required');
-    }
-
-    if (props.prompt && props.prompt.length > 2000) {
-      throw new InvalidJobDataError('Prompt cannot exceed 2000 characters');
-    }
-
-    if (props.attempts < 0) {
-      throw new InvalidJobDataError('Attempts cannot be negative');
-    }
-
-    if (props.maxAttempts < 1) {
-      throw new InvalidJobDataError('MaxAttempts must be at least 1');
-    }
-
+  /**
+   * Reconstitute from persistence
+   */
+  static fromPersistence(props: JobProps): Job {
     return new Job(props);
   }
 
-  // Business Logic
+  /**
+   * Factory method to create a new Job
+   */
+  static create(
+    userId: string,
+    imageId: string,
+    mode: string,
+    id: string,
+    prompt?: string,
+    meta?: Record<string, unknown>,
+  ): Job {
+    if (!userId) throw new InvalidJobDataError('User ID is required');
+    if (!imageId) throw new InvalidJobDataError('Image ID is required');
+    if (!mode) throw new InvalidJobDataError('Mode is required');
 
-  startProcessing(): void {
-    if (this.props.status === JobStatus.COMPLETED) {
-      throw new JobInvalidStateError(this.id, this.status, 'start processing');
-    }
-    this.props.status = JobStatus.PROCESSING;
-    this.props.updatedAt = new Date();
+    return new Job({
+      id,
+      userId,
+      imageId,
+      mode,
+      status: JobStatus.QUEUED,
+      attempts: 0,
+      maxAttempts: JOB_CONFIG.MAX_ATTEMPTS,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      prompt,
+      meta,
+    });
   }
 
+  // --- Domain Behaviors ---
+
+  /**
+   * Mark job as processing
+   */
+  markAsProcessing(): void {
+    if (this.isFinalState()) {
+      throw new JobInvalidStateError(
+        this.id,
+        this.status,
+        `Cannot start processing job in ${this.props.status} state`,
+      );
+    }
+
+    this.updateStatus(JobStatus.PROCESSING);
+    this.incrementAttempts();
+  }
+
+  /**
+   * Complete the job successfully
+   */
   complete(resultUrl: string): void {
     if (this.props.status !== JobStatus.PROCESSING) {
-      // Allow completing if it was retrying, but typically from processing
+      throw new JobInvalidStateError(
+        this.id,
+        this.status,
+        `Cannot complete job in ${this.props.status} state`,
+      );
     }
-    this.props.status = JobStatus.COMPLETED;
+
     this.props.resultUrl = resultUrl;
     this.props.completedAt = new Date();
-    this.props.updatedAt = new Date();
+    this.updateStatus(JobStatus.COMPLETED);
   }
 
+  /**
+   * Fail the job
+   */
   fail(errorMessage: string): void {
-    this.props.status = JobStatus.FAILED;
     this.props.errorMessage = errorMessage;
-    this.props.completedAt = new Date();
-    this.props.updatedAt = new Date();
+    this.updateStatus(JobStatus.FAILED);
+  }
+
+  /**
+   * Check if job can be retried
+   */
+  canRetry(): boolean {
+    return this.props.attempts < this.props.maxAttempts && !this.isSuccess();
+  }
+
+  /**
+   * Check if job is in a final state
+   */
+  isFinalState(): boolean {
+    return (
+      this.props.status === JobStatus.COMPLETED ||
+      this.props.status === JobStatus.FAILED ||
+      this.props.status === JobStatus.CANCELLED
+    );
+  }
+
+  isSuccess(): boolean {
+    return this.props.status === JobStatus.COMPLETED;
   }
 
   incrementAttempts(): void {
     this.props.attempts++;
-    this.props.updatedAt = new Date();
-
-    if (this.props.attempts >= this.props.maxAttempts) {
-      this.fail('Max attempts exceeded');
-    }
+    this.touch();
   }
 
   isMaxAttemptsExceeded(): boolean {
     return this.props.attempts >= this.props.maxAttempts;
+  }
+
+  private updateStatus(status: JobStatus): void {
+    this.props.status = status;
+    this.touch();
+  }
+
+  private touch(): void {
+    this.props.updatedAt = new Date();
   }
 }

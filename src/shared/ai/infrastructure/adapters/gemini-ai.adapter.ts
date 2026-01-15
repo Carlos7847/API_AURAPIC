@@ -49,8 +49,12 @@ interface ParsedAnalysisData {
  * @description Processes images using Google Gemini AI models with retry logic,
  * error handling, and safety filters
  */
+import { EmbeddingGeneratorPort } from '../../domain/ports/embedding-generator.port';
+
 @Injectable()
-export class GeminiAiAdapter implements AiProcessorServicePort {
+export class GeminiAiAdapter
+  implements AiProcessorServicePort, EmbeddingGeneratorPort
+{
   private readonly genAI: GoogleGenAI;
   private readonly modelName: string;
   private readonly maxRetries: number = 3;
@@ -493,6 +497,31 @@ JSON: summary, damage_types, complexity_score, techniques, affected_percentage, 
    */
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Generate vector embedding for text
+   * Uses text-embedding-004 model
+   */
+  async generateEmbedding(text: string): Promise<number[]> {
+    try {
+      const result = await this.genAI.models.embedContent({
+        model: 'text-embedding-004',
+        contents: text,
+      });
+
+      if (!result.embeddings?.[0]?.values) {
+        throw new Error('No embedding values returned');
+      }
+
+      return result.embeddings[0].values;
+    } catch (error) {
+      this.logger.error(
+        `Failed to generate embedding: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        GeminiAiAdapter.name,
+      );
+      throw error;
+    }
   }
 
   /**

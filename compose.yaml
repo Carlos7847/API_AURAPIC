@@ -1,0 +1,76 @@
+networks:
+  aura-net:
+    driver: bridge
+
+services:
+  # ----------------------------------------------------------------
+  # Database Service (PostgreSQL + pgvector)
+  # ----------------------------------------------------------------
+  db:
+    container_name: aura-db
+    image: pgvector/pgvector:pg16
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+      POSTGRES_DB: ${DB_NAME:-aura_db}
+    ports:
+      - "5433:5432" # 5433 to avoid conflict with local Postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - aura-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------------------
+  # Cache & Queue Service (Redis)
+  # ----------------------------------------------------------------
+  redis:
+    container_name: aura-redis
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - aura-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ----------------------------------------------------------------
+  # API Service (NestJS Application)
+  # ----------------------------------------------------------------
+  api:
+    container_name: aura-api
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner # Usar stage final
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@aura-db:5432/${DB_NAME:-aura_db}?schema=public
+      REDIS_HOST: aura-redis
+      REDIS_PORT: 6379
+      # Heredar el resto del host (S3 keys, Gemini API Key, etc.)
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - aura-net
+
+volumes:
+  postgres_data:
+  redis_data:

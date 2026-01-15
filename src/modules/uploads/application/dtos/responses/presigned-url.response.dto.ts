@@ -8,10 +8,10 @@ export class PresignedUrlResponseDto {
   imageId: string;
 
   @ApiProperty({
-    description: 'Clave del objeto en S3',
+    description: 'Clave del objeto en Storage',
     example: 'inputs/user-123/1704067200000-product.jpg',
   })
-  s3Key: string;
+  storageKey: string;
 
   @ApiProperty({
     description: 'URL presignada para subir el archivo (PUT)',

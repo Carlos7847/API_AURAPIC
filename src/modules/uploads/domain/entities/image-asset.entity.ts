@@ -5,7 +5,7 @@ export type ImageAssetKind = 'input' | 'output' | 'thumbnail';
 export interface ImageAssetProps {
   id: string;
   userId: string;
-  s3Key: string;
+  storageKey: string;
   url: string;
   kind: ImageAssetKind;
   width?: number;
@@ -26,8 +26,8 @@ export class ImageAsset {
     return this.props.userId;
   }
 
-  get s3Key(): string {
-    return this.props.s3Key;
+  get storageKey(): string {
+    return this.props.storageKey;
   }
 
   get url(): string {
@@ -65,8 +65,9 @@ export class ImageAsset {
 
   // Factory Methods
   static create(props: ImageAssetProps): ImageAsset {
-    if (!props.s3Key || props.s3Key.trim() === '') {
-      throw new InvalidImageAssetError('s3Key', 'is required');
+    // Validations
+    if (!props.storageKey || props.storageKey.trim() === '') {
+      throw new InvalidImageAssetError('storageKey', 'is required');
     }
     if (!props.userId || props.userId.trim() === '') {
       throw new InvalidImageAssetError('userId', 'is required');

@@ -32,28 +32,28 @@ export class PresignUploadUseCase {
     this.uploadPolicy.validateFile(dto.contentType);
 
     // 2. Generar Key de almacenamiento según política de dominio
-    const s3Key = this.uploadPolicy.generateStorageKey(
+    const storageKey = this.uploadPolicy.generateStorageKey(
       userId,
       dto.filename,
       dto.kind,
     );
 
     this.logger.debug(
-      `Presigning upload for user ${userId}, file: ${dto.filename}, kind: ${dto.kind}, key: ${s3Key}`,
+      `Presigning upload for user ${userId}, file: ${dto.filename}, kind: ${dto.kind}, key: ${storageKey}`,
     );
 
     // 3. Crear registro de ImageAsset en BD
     const imageAsset = await this.imageAssetRepository.create({
       userId,
-      s3Key,
-      url: `s3://${this.getS3Bucket()}/${s3Key}`,
+      storageKey,
+      url: `s3://${this.getS3Bucket()}/${storageKey}`,
       kind: dto.kind,
     });
 
     // 4. Generar URL presignada
     const expiresIn = this.envConfig.getS3PresignedUrlExpiry();
     const presignedUrl = await this.s3Service.generatePresignedPutUrl(
-      s3Key,
+      storageKey,
       dto.contentType,
       expiresIn,
     );
@@ -64,7 +64,7 @@ export class PresignUploadUseCase {
 
     return new PresignedUrlResponseDto({
       imageId: imageAsset.id,
-      s3Key,
+      storageKey,
       presignedUrl,
       expiresIn,
       contentType: dto.contentType,

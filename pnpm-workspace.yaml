@@ -2,6 +2,7 @@ onlyBuiltDependencies:
   - '@nestjs/core'
   - '@prisma/client'
   - '@prisma/engines'
+  - '@sentry-internal/node-cpu-profiler'
   - argon2
   - aws-sdk
   - msgpackr-extract

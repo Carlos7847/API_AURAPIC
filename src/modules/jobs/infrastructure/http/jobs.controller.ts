@@ -17,6 +17,7 @@ import { CreateJobUseCase } from '../../application/use-cases/create-job.use-cas
 import { GetJobUseCase } from '../../application/use-cases/get-job.use-case';
 import { ListUserJobsUseCase } from '../../application/use-cases/list-user-jobs.use-case';
 import { CancelJobUseCase } from '../../application/use-cases/cancel-job.use-case';
+import { SearchSimilarJobsUseCase } from '../../application/use-cases/search-similar-jobs.use-case';
 import { CreateJobDto } from '../../application/dtos/create-job.dto';
 import { JobResponseDto } from '../../application/dtos/job.response.dto';
 import { JwtAuthGuard } from '../../../iam/infrastructure/guards/jwt-auth.guard';
@@ -57,6 +58,8 @@ export class JobsController {
     private readonly listUserJobsUseCase: ListUserJobsUseCase,
     @Inject(CancelJobUseCase)
     private readonly cancelJobUseCase: CancelJobUseCase,
+    @Inject(SearchSimilarJobsUseCase)
+    private readonly searchJobsUseCase: SearchSimilarJobsUseCase,
     private readonly logger: LoggerPort,
   ) {}
 
@@ -86,6 +89,26 @@ export class JobsController {
     this.logger.debug(`Creating job for user ${userId}`, JobsController.name);
     const job = await this.createJobUseCase.execute(userId, dto);
     return JobResponseMapper.toDto(job);
+  }
+
+  /**
+   * GET /jobs/search
+   * Semantic search for jobs using vector memory
+   */
+  @Get('search')
+  @ApiOperation({ summary: 'Semantic search for jobs (Vector Memory)' })
+  @ApiQuery({ name: 'q', required: true, description: 'Search query' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiResponse({ status: 200, description: 'Similar jobs found' })
+  async searchJobs(
+    @Req() req: AuthenticatedRequest,
+    @Query('q') query: string,
+    @Query('limit') limit?: number,
+  ) {
+    if (!query) {
+      throw new Error('Query parameter "q" is required');
+    }
+    return this.searchJobsUseCase.execute(query, limit || 5);
   }
 
   /**

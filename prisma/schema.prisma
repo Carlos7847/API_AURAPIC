@@ -5,12 +5,14 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
 }
 
 enum UserRole {
@@ -90,18 +92,16 @@ model PromptTemplate {
 }
 
 model Memory {
-  id        String   @id @default(cuid())
+  id        String                      @id @default(cuid())
   ownerType String // "USER", "JOB", "GLOBAL"
   ownerId   String? // userId or jobId
   content   String // The text content
-  embedding Float[] // Vector fallback (standard array)
+  embedding Unsupported("vector(768)")? // Gemini Embedding dimensions
   metadata  Json?
-  createdAt DateTime @default(now())
+  createdAt DateTime                    @default(now())
 
   @@index([ownerType, ownerId])
 }
-
-// Payment Processing Models (Payment Provider Agnostic)
 
 // Payment providers available (MercadoPago, Culqi, Crypto, etc.)
 model PaymentProvider {
@@ -160,10 +160,9 @@ model Payment {
   externalReference String? // Custom reference
   paymentMethodId   String? // visa, mastercard, pago_efectivo, etc.
   paymentTypeId     String? // credit_card, debit_card, ticket, etc.
-  idempotencyKey    String? @unique // NEW: For duplicate prevention
+  idempotencyKey    String? @unique // For duplicate prevention
   metadata          Json? // Additional provider metadata
 
-  // Timestamps
   approvedAt DateTime?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
@@ -178,14 +177,13 @@ model Payment {
 model CreditPackage {
   id          String  @id @default(cuid())
   name        String  @unique // "Starter", "Pro", "Business"
-  credits     Int // Number of credits
-  price       Float // Price in currency
+  credits     Int
+  price       Float
   currency    String  @default("PEN")
   active      Boolean @default(true)
   description String?
-  metadata    Json? // Additional package details
+  metadata    Json?
 
-  // Relations
   payments Payment[]
 
   createdAt DateTime @default(now())
@@ -232,7 +230,6 @@ model AuthCredential {
 
   passwordHash String? // Solo para provider = EMAIL
 
-  // Se guarda el hash del token
   passwordResetTokenHash String?   @unique
   passwordResetExpiresAt DateTime?
 
@@ -276,7 +273,7 @@ model Session {
   replacedById String? // Family Tree para detección de robo
 
   @@index([userId])
-  @@index([expiresAt]) // Vital para el CRON de limpieza
+  @@index([expiresAt]) // para limpiar con CRON
 }
 
 // Auditoría de Seguridad
@@ -291,16 +288,16 @@ model AuditLog {
 }
 
 model ImageAsset {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  s3Key     String   @unique // Clave completa en S3
-  url       String
-  kind      String   @default("input") // input | output | thumbnail
-  width     Int?
-  height    Int?
-  sizeBytes Int?
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storageKey String   @unique // Clave completa en Storage (S3, GCS, etc)
+  url        String
+  kind       String   @default("input") // input | output | thumbnail
+  width      Int?
+  height     Int?
+  sizeBytes  Int?
+  createdAt  DateTime @default(now())
 
   // Relación inversa: si es output, se vincula a JobResult
   jobResult JobResult?

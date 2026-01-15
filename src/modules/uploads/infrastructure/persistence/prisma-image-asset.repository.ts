@@ -18,7 +18,7 @@ export class PrismaImageAssetRepository implements ImageAssetRepositoryPort {
     const asset = await this.prisma.imageAsset.create({
       data: {
         userId: data.userId,
-        s3Key: data.s3Key,
+        storageKey: data.storageKey,
         url: data.url,
         kind: data.kind,
         width: data.width,
@@ -62,12 +62,11 @@ export class PrismaImageAssetRepository implements ImageAssetRepositoryPort {
     };
   }
 
-  async findByS3Key(s3Key: string): Promise<ImageAsset | null> {
-    const asset = await this.prisma.imageAsset.findUnique({
-      where: { s3Key },
+  async findByStorageKey(storageKey: string): Promise<ImageAsset | null> {
+    const prismaAsset = await this.prisma.imageAsset.findUnique({
+      where: { storageKey },
     });
-
-    return asset ? this.toDomain(asset) : null;
+    return prismaAsset ? this.toDomain(prismaAsset) : null;
   }
 
   async update(id: string, data: UpdateImageAssetDto): Promise<ImageAsset> {
@@ -101,7 +100,7 @@ export class PrismaImageAssetRepository implements ImageAssetRepositoryPort {
     return ImageAsset.restore({
       id: prismaAsset.id as string,
       userId: prismaAsset.userId as string,
-      s3Key: prismaAsset.s3Key as string,
+      storageKey: prismaAsset.storageKey as string,
       url: prismaAsset.url as string,
       kind: prismaAsset.kind as 'input' | 'output' | 'thumbnail',
       width:

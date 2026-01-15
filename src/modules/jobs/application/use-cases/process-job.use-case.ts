@@ -1,6 +1,8 @@
 import { JobRepositoryPort } from '../../domain/ports/job.repository.port';
 import { AiProcessorServicePort } from 'src/shared/ai/domain/ports/ai-processor.port';
 import { ImageAssetRepositoryPort } from 'src/modules/uploads/domain/ports/image-asset.repository.port';
+import { EmbeddingGeneratorPort } from 'src/shared/ai/domain/ports/embedding-generator.port';
+import { MemoryRepositoryPort } from 'src/shared/ai/domain/ports/memory.repository.port';
 import { RefundCreditUseCase } from 'src/modules/billing/application/use-cases/refund-credit.use-case';
 import { JobStatus } from '../../domain/enums/job-status.enum';
 import {
@@ -29,6 +31,8 @@ export class ProcessJobUseCase {
     private readonly imageAssetRepository: ImageAssetRepositoryPort,
     private readonly refundCredit: RefundCreditUseCase,
     private readonly logger: LoggerPort,
+    private readonly embeddingGenerator: EmbeddingGeneratorPort,
+    private readonly memoryRepository: MemoryRepositoryPort,
   ) {}
 
   async execute(jobId: string): Promise<JobProcessResult> {
@@ -103,6 +107,36 @@ export class ProcessJobUseCase {
         `Job ${jobId} completed successfully. Result: ${resultImageUrl}`,
         ProcessJobUseCase.name,
       );
+
+      // 8. Generate & Save Memory (Async - allow to proceed even if fails? No, better inside try/catch)
+      try {
+        const embedding = await this.embeddingGenerator.generateEmbedding(
+          jobEntity.prompt || 'No prompt provided',
+        );
+
+        await this.memoryRepository.save({
+          ownerType: 'JOB',
+          ownerId: jobId,
+          content: jobEntity.prompt || 'No prompt provided',
+          embedding: embedding,
+          metadata: {
+            mode: jobEntity.mode,
+            resultUrl: resultImageUrl,
+            aiModel: metadata?.aiModel,
+          },
+        });
+
+        this.logger.debug(
+          `Memory saved for job ${jobId}`,
+          ProcessJobUseCase.name,
+        );
+      } catch (memError) {
+        // Non-blocking error for job completion
+        this.logger.error(
+          `Failed to save memory for job ${jobId}: ${memError}`,
+          ProcessJobUseCase.name,
+        );
+      }
 
       return {
         jobId,

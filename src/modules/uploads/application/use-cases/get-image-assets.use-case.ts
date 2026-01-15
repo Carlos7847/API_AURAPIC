@@ -41,7 +41,7 @@ export class GetImageAssetsUseCase {
           new ImageAssetResponseDto({
             id: asset.id,
             userId: asset.userId,
-            s3Key: asset.s3Key,
+            storageKey: asset.storageKey,
             url: asset.url,
             kind: asset.kind,
             width: asset.width,
@@ -68,7 +68,7 @@ export class GetImageAssetsUseCase {
     return new ImageAssetResponseDto({
       id: asset.id,
       userId: asset.userId,
-      s3Key: asset.s3Key,
+      storageKey: asset.storageKey,
       url: asset.url,
       kind: asset.kind,
       width: asset.width,

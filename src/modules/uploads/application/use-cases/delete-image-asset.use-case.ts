@@ -31,7 +31,7 @@ export class DeleteImageAssetUseCase {
       throw new UnauthorizedAssetAccessError(userId, imageId);
     }
 
-    await this.s3Service.deleteObject(asset.s3Key);
+    await this.s3Service.deleteObject(asset.storageKey);
 
     await this.imageAssetRepository.delete(imageId);
 

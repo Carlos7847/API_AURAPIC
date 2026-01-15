@@ -11,10 +11,10 @@ export class ImageAssetResponseDto {
   userId: string;
 
   @ApiProperty({
-    description: 'Clave en S3',
+    description: 'Clave en Storage',
     example: 'inputs/user-456/img.jpg',
   })
-  s3Key: string;
+  storageKey: string;
 
   @ApiProperty({ description: 'URL pública del activo' })
   url: string;

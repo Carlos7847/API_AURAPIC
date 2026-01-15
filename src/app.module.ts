@@ -9,6 +9,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LoggerModule } from './shared/logger/logger.module';
+import { EventsModule } from './shared/events/events.module';
 // import { LoggerModule } from 'nestjs-pino';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { AllExceptionsFilter } from './shared/filters/all-exceptions.filter';
@@ -22,6 +23,7 @@ import { EnvironmentConfigModule } from './shared/config/infrastructure/environm
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate }),
     LoggerModule,
+    EventsModule, // WebSocket Gateway for real-time notifications
     PrismaModule,
     IamModule,
     UploadsModule,

@@ -7,6 +7,8 @@ import {
   BullJobData,
   JobProcessResult,
 } from '../../domain/types/job-processor.types';
+import { EventEmitterPort } from 'src/shared/events/domain/ports/event-emitter.port';
+import { JobStatus } from '../../domain/enums/job-status.enum';
 
 /**
  * Jobs Processor (Worker)
@@ -27,6 +29,7 @@ import {
 export class JobsProcessor extends WorkerHost {
   constructor(
     private readonly processJobUseCase: ProcessJobUseCase,
+    private readonly eventEmitter: EventEmitterPort,
     private readonly logger: LoggerPort,
   ) {
     super();
@@ -40,7 +43,32 @@ export class JobsProcessor extends WorkerHost {
       `Processing job ${jobId} via WorkerHost`,
       JobsProcessor.name,
     );
-    return this.processJobUseCase.execute(jobId);
+
+    try {
+      const result = await this.processJobUseCase.execute(jobId);
+
+      // Emit real-time event for job completion
+      this.eventEmitter.emitJobStatus({
+        jobId: result.jobId,
+        userId: job.data.userId,
+        status: result.status,
+        resultUrl: result.resultUrl || undefined,
+        completedAt: new Date(),
+        metadata: result.metadata,
+      });
+
+      return result;
+    } catch (error) {
+      // Emit real-time event for job failure
+      this.eventEmitter.emitJobStatus({
+        jobId,
+        userId: job.data.userId,
+        status: JobStatus.FAILED,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+
+      throw error; // Re-throw for BullMQ retry logic
+    }
   }
 
   @OnWorkerEvent('completed')

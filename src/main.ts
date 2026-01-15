@@ -12,6 +12,9 @@ import helmet from 'helmet';
 import { EnvironmentConfigService } from './shared/config/infrastructure/environment-config.service';
 import * as Sentry from '@sentry/nestjs';
 import { nodeProfilingIntegration } from '@sentry/profiling-node';
+import { createAdapter } from '@socket.io/redis-adapter';
+import { createClient } from 'redis';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 
 async function bootstrap() {
   Sentry.init({
@@ -38,6 +41,27 @@ async function bootstrap() {
       transform: true,
     }),
   );
+
+  // WebSocket Redis Adapter (optional, for horizontal scaling)
+  if (process.env.ENABLE_REDIS_ADAPTER === 'true') {
+    const pubClient = createClient({ url: process.env.REDIS_URL });
+    const subClient = pubClient.duplicate();
+
+    await Promise.all([pubClient.connect(), subClient.connect()]);
+
+    const redisIoAdapter = new IoAdapter(app);
+    const adapterConstructor = createAdapter(pubClient, subClient);
+    redisIoAdapter.createIOServer = function (port: number, options?: any) {
+      const server = IoAdapter.prototype.createIOServer.call(
+        this,
+        port,
+        options,
+      );
+      server.adapter(adapterConstructor);
+      return server;
+    };
+    app.useWebSocketAdapter(redisIoAdapter);
+  }
 
   app.use(helmet());
   app.enableCors({

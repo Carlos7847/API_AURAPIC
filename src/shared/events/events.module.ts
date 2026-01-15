@@ -12,7 +12,7 @@ import { LoggerModule } from '../logger/logger.module';
  * - EventEmitterPort implementation
  * - Redis Adapter for horizontal scaling (configured in main.ts)
  *
- * Note: JwtService is provided globally by IamModule
+ * JwtService is provided globally by IamModule
  */
 @Global()
 @Module({

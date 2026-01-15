@@ -423,7 +423,7 @@ JSON: summary, damage_types, complexity_score, techniques, affected_percentage, 
           tags: parsed.tags || [],
         };
       }
-    } catch (error) {
+    } catch {
       this.logger.debug(
         'Failed to parse JSON from response, using plain text',
         GeminiAiAdapter.name,

@@ -19,7 +19,7 @@ export class JobNotFoundHttpException extends HttpException {
 }
 
 export class JobUnauthorizedHttpException extends HttpException {
-  constructor(jobId: string) {
+  constructor(_jobId: string) {
     super(
       {
         statusCode: HttpStatus.FORBIDDEN,

@@ -23,7 +23,7 @@ import { EnvironmentConfigModule } from './shared/config/infrastructure/environm
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate }),
     LoggerModule,
-    EventsModule, // WebSocket Gateway for real-time notifications
+    EventsModule,
     PrismaModule,
     IamModule,
     UploadsModule,

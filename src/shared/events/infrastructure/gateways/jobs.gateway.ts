@@ -12,6 +12,17 @@ import { EventEmitterPort } from '../../domain/ports/event-emitter.port';
 import { JobStatusChangedEvent } from '../../domain/events/job-status-changed.event';
 import { ConfigService } from '@nestjs/config';
 
+interface JwtPayload {
+  id?: string;
+  userId?: string;
+  sub?: string;
+  [key: string]: unknown;
+}
+
+interface SocketData {
+  userId: string;
+}
+
 /**
  * WebSocket Gateway for Real-time Job Notifications
  *
@@ -22,8 +33,10 @@ import { ConfigService } from '@nestjs/config';
  */
 @WebSocketGateway({
   cors: {
-    origin: (origin, callback) => {
-      // Allow all origins in development, specific in production
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
       const allowedOrigins = process.env.CORS_ORIGIN?.split(',') || [
         'http://localhost:3001',
       ];
@@ -42,7 +55,7 @@ export class JobsGateway
   implements OnGatewayConnection, OnGatewayDisconnect, EventEmitterPort
 {
   @WebSocketServer()
-  server: Server;
+  server!: Server;
 
   constructor(
     private readonly jwtService: JwtService,
@@ -50,30 +63,38 @@ export class JobsGateway
     private readonly configService: ConfigService,
   ) {}
 
-  async handleConnection(client: Socket) {
+  async handleConnection(client: Socket): Promise<void> {
     try {
-      // Extract token from auth or query
       const token =
-        client.handshake.auth?.token || client.handshake.query?.token;
+        (client.handshake.auth?.token as string | undefined) ||
+        (client.handshake.query?.token as string | undefined);
 
       if (!token) {
         this.logger.warn(
           `Connection rejected: No token provided`,
           JobsGateway.name,
         );
-        client.disconnect();
+        void client.disconnect();
         return;
       }
 
-      // Verify JWT
-      const payload = await this.jwtService.verifyAsync(token as string, {
+      const payload = await this.jwtService.verifyAsync<JwtPayload>(token, {
         secret: this.configService.get<string>('JWT_SECRET'),
       });
 
-      // Join user-specific room
       const userId = payload.id || payload.userId || payload.sub;
-      client.join(`user:${userId}`);
-      client.data.userId = userId;
+
+      if (!userId) {
+        this.logger.warn(
+          `Connection rejected: No userId in token`,
+          JobsGateway.name,
+        );
+        void client.disconnect();
+        return;
+      }
+
+      void client.join(`user:${userId}`);
+      (client.data as SocketData).userId = userId;
 
       this.logger.log(
         `Client connected: ${client.id} (user: ${userId})`,
@@ -84,12 +105,12 @@ export class JobsGateway
         `Connection rejected: ${err instanceof Error ? err.message : 'Unknown error'}`,
         JobsGateway.name,
       );
-      client.disconnect();
+      void client.disconnect();
     }
   }
 
-  handleDisconnect(client: Socket) {
-    const userId = client.data.userId;
+  handleDisconnect(client: Socket): void {
+    const userId = (client.data as Partial<SocketData>).userId;
     this.logger.log(
       `Client disconnected: ${client.id}${userId ? ` (user: ${userId})` : ''}`,
       JobsGateway.name,

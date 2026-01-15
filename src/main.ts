@@ -13,8 +13,9 @@ import { EnvironmentConfigService } from './shared/config/infrastructure/environ
 import * as Sentry from '@sentry/nestjs';
 import { nodeProfilingIntegration } from '@sentry/profiling-node';
 import { createAdapter } from '@socket.io/redis-adapter';
-import { createClient } from 'redis';
+import { Redis } from 'ioredis';
 import { IoAdapter } from '@nestjs/platform-socket.io';
+import type { ServerOptions, Server as SocketIOServer } from 'socket.io';
 
 async function bootstrap() {
   Sentry.init({
@@ -44,22 +45,26 @@ async function bootstrap() {
 
   // WebSocket Redis Adapter (optional, for horizontal scaling)
   if (process.env.ENABLE_REDIS_ADAPTER === 'true') {
-    const pubClient = createClient({ url: process.env.REDIS_URL });
-    const subClient = pubClient.duplicate();
-
-    await Promise.all([pubClient.connect(), subClient.connect()]);
+    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+    const pubClient = new Redis(redisUrl);
+    const subClient = new Redis(redisUrl);
 
     const redisIoAdapter = new IoAdapter(app);
     const adapterConstructor = createAdapter(pubClient, subClient);
-    redisIoAdapter.createIOServer = function (port: number, options?: any) {
+
+    redisIoAdapter.createIOServer = function (
+      port: number,
+      options?: ServerOptions,
+    ): SocketIOServer {
       const server = IoAdapter.prototype.createIOServer.call(
         this,
         port,
         options,
-      );
+      ) as SocketIOServer;
       server.adapter(adapterConstructor);
       return server;
     };
+
     app.useWebSocketAdapter(redisIoAdapter);
   }
 
@@ -88,4 +93,5 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? DEFAULT_APP_PORT);
 }
-bootstrap();
+
+void bootstrap();

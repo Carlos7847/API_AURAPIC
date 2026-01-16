@@ -1,152 +1,98 @@
 # Billing Module
 
-**Purpose**: Credit-based payment system for resource consumption control.
+**Purpose**: Manages the "Economic Physics" of the application — ensuring resources are consumed only when available.
 
-## 🎯 Responsibility
+## 🧠 Context & Decisions
 
-Manages user subscriptions, credit balances, and billing operations to ensure only authorized users with sufficient credits can consume expensive resources (AI image generation).
+### Why separate Billing from Payments?
+
+We decoupled **Billing** (Credits, Subscriptions) from **Payments** (Mercado Pago, Culqi, Stripe) to allow flexibility.
+
+- **Payments Module**: Handles technical integration with gateways (webhooks, signatures).
+- **Billing Module**: Handles business logic (adding credits, deducting for usage).
+
+This separation means we can switch payment providers without rewriting how credits are stored or consumed.
+
+### Why Event-Driven?
+
+Instead of the Payments module calling `billingService.addCredits()` directly, it publishes a `PaymentApprovedEvent`.
+
+- **Decoupling**: Payments module doesn't need to know Billing exists.
+- **Extensibility**: If we want to send a "Thank you" email later, the Notification module can just listen to the same event.
+- **Resilience**: If the Billing service is down (hypothetically), events can be replayed.
 
 ## 🏗️ Architecture
 
 ```mermaid
 graph TB
-    Controller[JobsController] -->|Create Job| DeductUC[DeductCreditUseCase]
-    DeductUC -->|Validate & Deduct| SubEntity[Subscription Entity]
-    SubEntity -->|Business Logic| SubRepo[SubscriptionRepository]
-    SubRepo -->|Persist| DB[(PostgreSQL)]
+    subgraph "External"
+        Stripe[Payment Gateway]
+    end
 
-    Worker[JobsProcessor] -->|On Failure| RefundUC[RefundCreditUseCase]
-    RefundUC -->|Add Credits| SubEntity
+    subgraph "Photo Expert API"
+        Controller[JobsController] -->|1. Create Job| CreditGuard
+        CreditGuard -->|2. Check Balance| SubEntity[Subscription Entity]
+
+        CreditGuard -->|3a. OK| JobService
+        CreditGuard -->|3b. Fail| Error[402 Payment Required]
+
+        Stripe -->|Webhook| PaymentModule
+        PaymentModule -->|Publish| EventBus
+        EventBus -->|PaymentApprovedEvent| BillingHandler
+        BillingHandler -->|Add Credits| SubEntity
+        SubEntity -->|Persist| DB[(PostgreSQL)]
+    end
 
     style SubEntity fill:#ffd93d
-    style DeductUC fill:#ff6b6b
-    style RefundUC fill:#51cf66
+    style CreditGuard fill:#ff6b6b
+    style BillingHandler fill:#51cf66
 ```
 
-**Pattern**: Domain-Driven Design with rich entities
+## 📦 Core Components
 
-- **Domain Layer**: `Subscription` entity with credit validation logic
-- **Application Layer**: Use cases for deduct/refund operations
-- **Infrastructure Layer**: Prisma repository + NestJS guards
+### 1. Subscription Entity (`src/modules/billing/domain/entities/subscription.entity.ts`)
 
-## 📦 Components
+The "Heart" of the module. It encapsulates all rules about credits.
 
-### Domain Entities
+- **Invariant**: Credits cannot be negative.
+- **Behavior**: `deductCredits()`, `addCredits()`.
 
-#### `Subscription`
+### 2. Event Handlers
 
-Rich domain entity managing credit lifecycle.
+- **`PaymentApprovedHandler`**: Listens for successful payments and translates money into credits (e.g., $10 = 50 credits).
 
-**Key Methods:**
+### 3. Guards
 
-```typescript
-hasCredits(amount: number): boolean       // Check balance
-deductCredits(amount: number): void       // Atomic deduction (throws if insufficient)
-addCredits(amount: number): void          // Refund/purchase
-```
+- **`CreditGuard`**: A NestJS Guard that intercepts requests to costly endpoints (like `/jobs`) and checks strict credit availability before the controller is even reached.
 
-**Factory Methods:**
+## 💳 Data Flow
 
-```typescript
-Subscription.createFree(userId, id); // New user with 10 credits
-Subscription.restore(props); // Rehydrate from DB
-```
+### Credit Consumption (Standard Path)
 
-### Use Cases
+1.  **Request**: User POSTs to `/jobs`.
+2.  **Guard**: `CreditGuard` checks DB for active subscription.
+3.  **Validation**: `if (credits < cost) throw PaymentRequired`.
+4.  **Deduction**: `subscription.deductCredits(cost)`.
+5.  **Execution**: Request proceeds to `JobsController`.
 
-| Use Case                         | Responsibility             | Throws                      |
-| :------------------------------- | :------------------------- | :-------------------------- |
-| **`DeductCreditUseCase`**        | Deduct credits atomically  | `InsufficientCreditsError`  |
-| **`RefundCreditUseCase`**        | Return credits on failure  | `SubscriptionNotFoundError` |
-| **`GetUserSubscriptionUseCase`** | Retrieve subscription info | `SubscriptionNotFoundError` |
+### Credit Refill (Async Path)
 
-### Guards
-
-#### `CreditGuard`
-
-NestJS Guard to protect resource-intensive endpoints.
-
-**Usage:**
-
-```typescript
-@UseGuards(JwtAuthGuard, CreditGuard)
-@Post('jobs')
-async createJob(@Body() dto: CreateJobDto) {
-  // Only executed if user has credits > 0
-}
-```
-
-## 💳 Credit Flow
-
-```
-1. User registers → Subscription created with 10 credits
-2. User creates job → DeductCreditUseCase(-1 credit)
-3. Job processing → AI generates image
-4a. Success → Credit consumed
-4b. Failure → RefundCreditUseCase(+1 credit)
-```
-
-## 🔒 Security
-
-- **Atomic Operations**: Credit changes are transactional
-- **Domain Validation**: Entity enforces business rules
-- **Guard Protection**: Prevents unauthorized access
-
-## ⚠️ Error Handling
-
-### `InsufficientCreditsError`
-
-Thrown when user attempts operation without sufficient balance.
-
-**HTTP Response**: `403 Forbidden`  
-**Message**: `"Insufficient credits. You have X credits remaining."`
-
-### `SubscriptionNotFoundError`
-
-Thrown when subscription doesn't exist for user.
-
-**HTTP Response**: `404 Not Found`  
-**Resolution**: Ensure subscription is created during user registration.
-
-## 🚀 Integration
-
-### Import in Other Modules
-
-```typescript
-@Module({
-  imports: [BillingModule],
-  // ...
-})
-export class JobsModule {}
-```
-
-### Inject Use Cases
-
-```typescript
-constructor(
-  private readonly deductCredit: DeductCreditUseCase,
-) {}
-```
+1.  **Webhook**: Payment provider notifies "Payment Succeeded".
+2.  **Event**: `PaymentApprovedEvent` is published.
+3.  **Reaction**: Billing module catches event, finds user, adds credits.
+4.  **Result**: User balance updated asynchronously.
 
 ## 📊 Database Schema
 
+We use a simple but robust schema optimized for atomic updates.
+
 ```prisma
 model Subscription {
-  id                   String    @id @default(cuid())
-  userId               String    @unique
-  plan                 String    @default("FREE")
-  status               String    @default("ACTIVE")
-  creditsRemaining     Int       @default(10)
-  currentPeriodStart   DateTime  @default(now())
-  currentPeriodEnd     DateTime?
-  stripeCustomerId     String?
-  stripeSubscriptionId String?   @unique
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  creditsRemaining Int      @default(0) // Source of truth
+  status           String   @default("ACTIVE")
+
+  // Optimistic Concurrency Control could be added here with a @version field
 }
 ```
-
-## 🔮 Future Enhancements
-
-- [ ] Stripe webhook integration for auto-refill
-- [ ] Credit purchase flows
-- [ ] Subscription plan upgrades (PRO, BUSINESS)
-- [ ] Usage analytics dashboard

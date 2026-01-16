@@ -1,89 +1,99 @@
-# 💳 Payments Module
+# Payments Module
 
-Robust, multi-provider payment system built with Strategy Pattern and Circuit Breaker resilience.
+**Purpose**: Handles money-in operations through multiple external gateway integrations.
 
-## 🌟 Features
+## 🧠 Context & Decisions
 
-- **Multi-Provider Strategy:** Seamlessly switch between payment gateways (Mercado Pago, Culqi, Crypto).
-- **Circuit Breaker:** Automatically detects provider outages and prevents cascading failures.
-- **Webhooks:** Dedicated webhook handlers for each provider with idempotency.
-- **Credit Packages:** Configurable packages managed via Database Seeding.
-- **Security:** Signature verification and localized credential management.
+### Why the Strategy Pattern?
+
+We need to support multiple payment providers (Mercado Pago, Culqi, Crypto, Stripe) without modifying the core payment processing logic.
+
+- **Decoupling**: Adding a new provider is as simple as creating a new class implementation.
+- **Runtime Switching**: The `PaymentProviderFactory` selects the correct strategy based on the `provider` string in the request (or valid configuration).
+- **Open/Closed Principle**: We can add new providers (Open for extension) without changing the service code (Closed for modification).
+
+### Event-Driven Integration
+
+This module is strictly for **processing payments**. It does Not know about "Credits" or "Subscriptions".
+
+- **Flow**: Webhook received → Signature Verified → Payment Validated → **Event Published**.
+- **Decoupling**: The Payments module publishes `PaymentApprovedEvent`. It doesn't care who listens (Billing, Notification, Analytics). This prevents circular dependencies.
 
 ## 🏗️ Architecture
 
 ```mermaid
 graph TD
-    User -->|Create Preference| Service
-    Service -->|Get Strategy| Factory[PaymentProviderFactory]
-    Factory -->|MercadoPago| MPAdapter
-    Factory -->|Culqi| CQAdapter
+    Client -->|1. POST /preference| Service[PaymentService]
+    Service -->|2. Factory| Adapter[ProviderAdapter]
+    Adapter -->|3. API Call| Gateway[Mercado Pago / Culqi]
 
-    MPAdapter -->|API Call| MercadoPago
-    CQAdapter -->|API Call| Culqi
+    Gateway -->|4. Webhook| Webhook[WebhookController]
+    Webhook -->|5. Verify| Adapter
+    Webhook -->|6. Process| Service
+    Service -->|7. Publish| EventBus
 
-    MercadoPago -->|Webhook| WebhookController
-    WebhookController -->|Process| Service
-    Service -->|Add Credits| BillingModule
+    EventBus -->|PaymentApprovedEvent| Billing[BillingModule]
+    EventBus -->|PaymentApprovedEvent| Email[NotificationModule]
 ```
 
-## 🔌 Providers
+## 📦 Core Components
 
-### 1. Mercado Pago (Live)
+### 1. Provider Adapter Interface
 
-- **Status:** ✅ Active
-- **Type:** Redirect / Checkout Pro
-- **Webhook Endpoint:** `/payments/webhook/mercadopago`
-- **Configuration:**
-  ```env
-  MP_ACCESS_TOKEN=TEST-...
-  MP_WEBHOOK_SECRET=...
-  ```
+All providers must implement `PaymentProviderPort`:
 
-### 2. Culqi (Ready)
-
-- **Status:** 🚧 Template Ready (Inactive)
-- **Type:** Token / Charge
-- **Webhook Endpoint:** `/payments/webhook/culqi`
-- **Activation:**
-  1. Set `isActive = true` in DB.
-  2. Implement `culqi-node` in adapter.
-  3. Uncomment in `PaymentProviderFactory`.
-
-## 📦 Data Utils
-
-### Seeding Packages
-
-Run the following command to populate the database with default credit packages:
-
-```bash
-pnpm prisma db seed
+```typescript
+interface PaymentProviderPort {
+  createPreference(data: PaymentData): Promise<PreferenceResult>;
+  validateWebhook(payload: any, signature: string): Promise<boolean>;
+  processWebhook(payload: any): Promise<PaymentResult>;
+}
 ```
 
-**Default Packages:**
+### 2. Circuit Breaker
 
-- `pkg-basic`: 10 Credits
-- `pkg-pro`: 60 Credits (Best Value)
-- `pkg-enterprise`: 500 Credits
+We wrap external API calls in a Circuit Breaker.
 
-## 📡 API Endpoints
+- **Why?**: If Mercado Pago is down, we fail fast instead of hanging the thread.
+- **Behavior**: After 5 failures, the circuit opens for 30 seconds.
 
-| Method | Endpoint                        | Description                    |
-| :----- | :------------------------------ | :----------------------------- |
-| `GET`  | `/payments/providers`           | List active payment providers  |
-| `GET`  | `/payments/packages`            | List available credit packages |
-| `POST` | `/payments/create-preference`   | Initialize a payment flow      |
-| `POST` | `/payments/webhook/mercadopago` | Handle MP notifications        |
+## 🔌 Supported Providers
 
-## 🧪 Testing Webhooks
+| Provider         | Status   | Key Features                                      |
+| :--------------- | :------- | :------------------------------------------------ |
+| **Mercado Pago** | ✅ Live  | Redirect Checkout, Webhook Signature Verification |
+| **Culqi**        | 🚧 Ready | Tokenized Cards, Anti-fraud                       |
 
-You can verify webhook processing using the generic endpoint:
+## 🚀 Integration Spec
+
+### 1. Creating a Preference
+
+**POST** `/payments/create-preference`
+
+```json
+{
+  "provider": "mercadopago",
+  "items": [{ "id": "pkg-basic", "title": "10 Credits", "price": 10.0 }],
+  "payerEmail": "user@example.com"
+}
+```
+
+### 2. Webhook Handling
+
+**POST** `/payments/webhook/:provider`
+
+- Idempotency: Handled by `paymentId` unique constraint.
+- Security: `x-signature` header validation.
+
+## ⚠️ Configuration
+
+Ensure you have the strategies configured in `.env`:
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/payments/webhook/mercadopago \
-  -H "Content-Type: application/json" \
-  -d '{
-    "action": "payment.updated",
-    "data": { "id": "123456" }
-  }'
+# Mercado Pago
+MP_ACCESS_TOKEN=TEST-123...
+MP_WEBHOOK_SECRET=...
+
+# Payment Logic
+CURRENCY=USD
 ```

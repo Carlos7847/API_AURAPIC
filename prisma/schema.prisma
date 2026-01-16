@@ -342,3 +342,37 @@ model JobResult {
   @@index([jobId])
   @@index([imageId])
 }
+
+// ============================================
+// OUTBOX PATTERN (Event Consistency)
+// ============================================
+
+/// Transactional Outbox for guaranteed event delivery
+/// Ensures events are persisted atomically with domain state changes
+model OutboxEvent {
+  id          String    @id @default(cuid())
+  eventName   String // e.g., 'payment.approved'
+  payload     Json // Serialized event payload
+  status      String    @default("PENDING") // PENDING, PROCESSED, FAILED
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(5)
+  error       String? // Last error message if failed
+  createdAt   DateTime  @default(now())
+  processedAt DateTime? // When successfully processed
+
+  @@index([status, createdAt], name: "idx_outbox_processing")
+  @@map("outbox_events")
+}
+
+/// Idempotency table to prevent duplicate event processing
+model ProcessedEvent {
+  id          String   @id @default(cuid())
+  eventId     String   @unique // Reference to OutboxEvent.id
+  eventName   String
+  processedAt DateTime @default(now())
+  processedBy String // Handler class name
+  metadata    Json? // Additional processing info
+
+  @@index([eventId], name: "idx_processed_event_lookup")
+  @@map("processed_events")
+}

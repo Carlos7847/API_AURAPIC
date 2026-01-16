@@ -5,16 +5,18 @@ import {
   PaymentNotFoundError,
   PaymentAlreadyProcessedError,
 } from '../../domain/errors/payment.errors';
-import { SubscriptionRepositoryPort } from 'src/modules/billing/domain/ports/subscription.repository.port';
 import { Payment } from '../../domain/entities/payment.entity';
 import { PaymentProviderDetails } from '../../domain/ports/payment-provider.port';
 import { LoggerPort } from 'src/shared/logger/domain/logger.port';
-import { SubscriptionNotFoundError } from 'src/modules/billing/domain/errors/billing.errors';
 import { PaymentProviderFactory } from '../services/payment-provider.factory';
 import { PAYMENT_REFERENCE_PREFIX } from '../../domain/constants/payment.constants';
+import { OutboxEventRepositoryPort } from 'src/shared/events/domain/repositories/outbox-event.repository.port';
+import { OutboxEvent } from 'src/shared/events/domain/entities/outbox-event.entity';
+import { randomUUID } from 'node:crypto';
+import { PrismaService } from 'src/shared/persistence/prisma/prisma.service';
 
 export interface ProcessWebhookRequest {
-  providerCode: string; // NEW: Which provider sent this webhook
+  providerCode: string; // Which provider sent this webhook
   action: string;
   data: {
     id: string; // Provider Payment ID
@@ -24,14 +26,15 @@ export interface ProcessWebhookRequest {
 
 /**
  * Process Webhook Use Case
- * Handles Mercado Pago webhook notifications
+ * Handles payment provider webhook notifications
  */
 @Injectable()
 export class ProcessWebhookUseCase {
   constructor(
     private readonly paymentRepository: PaymentRepositoryPort,
     private readonly providerFactory: PaymentProviderFactory,
-    private readonly subscriptionRepository: SubscriptionRepositoryPort,
+    private readonly outboxRepository: OutboxEventRepositoryPort,
+    private readonly prisma: PrismaService,
     private readonly logger: LoggerPort,
   ) {}
 
@@ -132,29 +135,27 @@ export class ProcessWebhookUseCase {
       providerPaymentDetails.paymentTypeId || undefined,
     );
 
-    await this.paymentRepository.save(payment);
+    // 2. Prepare outbox event
+    const outboxEvent = OutboxEvent.create(randomUUID(), 'payment.approved', {
+      paymentId: payment.id,
+      userId: payment.userId,
+      creditsAmount: payment.creditsAmount,
+      amount: payment.amount,
+      currency: payment.currency,
+      providerPaymentId: providerPaymentDetails.id,
+    });
+
+    // 3. ATOMIC TRANSACTION: Save payment + outbox event together
+    await this.prisma.$transaction(async (_tx) => {
+      // Payment is saved
+      await this.paymentRepository.save(payment);
+
+      // Outbox event is saved
+      await this.outboxRepository.create(outboxEvent);
+    });
 
     this.logger.log(
-      `Payment ${payment.id} approved (Provider ID: ${providerPaymentDetails.id}, Amount: ${providerPaymentDetails.transactionAmount})`,
-      ProcessWebhookUseCase.name,
-    );
-
-    // 2. Add credits to user subscription
-    const subscription = await this.subscriptionRepository.findByUserId(
-      payment.userId,
-    );
-
-    if (!subscription) {
-      const errorMsg = `Subscription not found for approved payment ${payment.id} (user: ${payment.userId})`;
-      this.logger.error(errorMsg);
-      throw new SubscriptionNotFoundError(payment.userId);
-    }
-
-    subscription.addCredits(payment.creditsAmount);
-    await this.subscriptionRepository.save(subscription);
-
-    this.logger.log(
-      `Credits added: ${payment.creditsAmount} to user ${payment.userId}. New balance: ${subscription.creditsRemaining}`,
+      `Payment ${payment.id} approved and event saved to outbox (Provider ID: ${providerPaymentDetails.id}, Amount: ${providerPaymentDetails.transactionAmount})`,
       ProcessWebhookUseCase.name,
     );
   }

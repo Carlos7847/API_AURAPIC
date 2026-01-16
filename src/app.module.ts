@@ -1,16 +1,19 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './shared/persistence/prisma/prisma.module';
 import { IamModule } from './modules/iam/iam.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { JobsModule } from './modules/jobs/jobs.module';
+import { BillingModule } from './modules/billing/billing.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LoggerModule } from './shared/logger/logger.module';
 import { EventsModule } from './shared/events/events.module';
-// import { LoggerModule } from 'nestjs-pino';
+import { DomainEventsModule } from './shared/events/domain-events.module';
+import { HealthModule } from './shared/health/health.module';
+import { RequestIdMiddleware } from './shared/middleware/request-id.middleware';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { AllExceptionsFilter } from './shared/filters/all-exceptions.filter';
 import { EnvVars, validate } from './config/env.config';
@@ -24,10 +27,13 @@ import { EnvironmentConfigModule } from './shared/config/infrastructure/environm
     ConfigModule.forRoot({ isGlobal: true, validate }),
     LoggerModule,
     EventsModule,
+    DomainEventsModule,
+    HealthModule,
     PrismaModule,
     IamModule,
     UploadsModule,
     JobsModule,
+    BillingModule,
     AdminModule,
     PaymentsModule,
     BullModule.forRootAsync({
@@ -67,4 +73,8 @@ import { EnvironmentConfigModule } from './shared/config/infrastructure/environm
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
+  }
+}

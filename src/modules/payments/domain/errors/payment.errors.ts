@@ -34,10 +34,8 @@ export class PaymentAlreadyProcessedError extends PaymentError {
 }
 
 export class InvalidPaymentAmountError extends PaymentError {
-  constructor(expected: number, received: number) {
-    super(
-      `Invalid payment amount. Expected: ${expected}, Received: ${received}`,
-    );
+  constructor(amount: number) {
+    super(`Invalid payment amount: ${amount}. Amount must be greater than 0`);
     this.name = 'InvalidPaymentAmountError';
   }
 }
@@ -86,5 +84,12 @@ export class InvalidPaymentStateError extends PaymentError {
       `Cannot ${operation} payment ${paymentId} in status: ${currentStatus}`,
     );
     this.name = 'InvalidPaymentStateError';
+  }
+}
+
+export class InvalidCreditsAmountError extends PaymentError {
+  constructor(credits: number) {
+    super(`Invalid credits amount: ${credits}. Credits must be greater than 0`);
+    this.name = 'InvalidCreditsAmountError';
   }
 }

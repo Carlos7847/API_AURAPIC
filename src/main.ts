@@ -91,7 +91,33 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  await app.listen(process.env.PORT ?? DEFAULT_APP_PORT);
+  // Enable graceful shutdown hooks for Prisma, BullMQ, etc.
+  app.enableShutdownHooks();
+
+  const port = process.env.PORT ?? DEFAULT_APP_PORT;
+  await app.listen(port);
+
+  console.log(`Application is running on: http://localhost:${port}`);
+
+  // Graceful shutdown on SIGTERM (Kubernetes/Docker)
+  process.on('SIGTERM', () => {
+    void (async () => {
+      console.log('SIGTERM signal received: closing HTTP server');
+      await app.close();
+      console.log('Application closed gracefully');
+      process.exit(0);
+    })();
+  });
+
+  // Graceful shutdown on SIGINT (Ctrl+C)
+  process.on('SIGINT', () => {
+    void (async () => {
+      console.log('SIGINT signal received: closing HTTP server');
+      await app.close();
+      console.log('Application closed gracefully');
+      process.exit(0);
+    })();
+  });
 }
 
 void bootstrap();

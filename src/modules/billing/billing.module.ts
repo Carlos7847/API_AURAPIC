@@ -11,6 +11,9 @@ import { DeductCreditUseCase } from './application/use-cases/deduct-credit.use-c
 import { RefundCreditUseCase } from './application/use-cases/refund-credit.use-case';
 import { GetUserSubscriptionUseCase } from './application/use-cases/get-user-subscription.use-case';
 
+// Event Handlers
+import { PaymentApprovedHandler } from './application/event-handlers/payment-approved.handler';
+
 // Guards
 import { CreditGuard } from './infrastructure/guards/credit.guard';
 
@@ -44,6 +47,9 @@ import { CreditGuard } from './infrastructure/guards/credit.guard';
       },
       inject: [SubscriptionRepositoryPort],
     },
+
+    // Event Handlers
+    PaymentApprovedHandler,
 
     // Guards
     CreditGuard,

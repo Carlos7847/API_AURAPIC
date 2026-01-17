@@ -33,7 +33,6 @@ export class PaymentProviderFactory {
       case PAYMENT_PROVIDERS.MERCADO_PAGO:
         return this.mercadoPagoAdapter;
 
-      // Uncomment when Culqi integration is complete:
       // case PAYMENT_PROVIDERS.CULQI:
       //   return this.culqiAdapter;
 

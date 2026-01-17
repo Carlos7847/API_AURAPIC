@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { Logger } from 'nestjs-pino';
+// import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import {
@@ -31,7 +31,7 @@ async function bootstrap() {
     bufferLogs: true, // Buffer logs until Pino is attached
   });
 
-  app.useLogger(app.get(Logger));
+  // app.useLogger(app.get(Logger));
 
   const configService = app.get(EnvironmentConfigService);
 
@@ -99,7 +99,7 @@ async function bootstrap() {
 
   console.log(`Application is running on: http://localhost:${port}`);
 
-  // Graceful shutdown on SIGTERM (Kubernetes/Docker)
+  // Graceful shutdown on SIGTERM ( for Docker)
   process.on('SIGTERM', () => {
     void (async () => {
       console.log('SIGTERM signal received: closing HTTP server');

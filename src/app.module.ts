@@ -1,4 +1,9 @@
-import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
+import {
+  Module,
+  MiddlewareConsumer,
+  NestModule,
+  RequestMethod,
+} from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './shared/persistence/prisma/prisma.module';
@@ -75,6 +80,12 @@ import { EnvironmentConfigModule } from './shared/config/infrastructure/environm
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(RequestIdMiddleware).forRoutes('*');
+    consumer
+      .apply(RequestIdMiddleware)
+      .exclude(
+        { path: 'health', method: RequestMethod.GET },
+        { path: 'health/ready', method: RequestMethod.GET },
+      )
+      .forRoutes({ path: '(.*)', method: RequestMethod.ALL });
   }
 }

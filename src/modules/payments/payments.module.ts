@@ -51,6 +51,9 @@ import { PaymentsController } from './infrastructure/http/payments.controller';
       useClass: PrismaPaymentProviderRepository,
     },
 
+    // Payment Provider Adapters (as concrete classes for factory injection)
+    MercadoPagoAdapter,
+
     {
       provide: PaymentProviderPort,
       useClass: MercadoPagoAdapter,

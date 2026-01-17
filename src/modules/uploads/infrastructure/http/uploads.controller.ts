@@ -28,7 +28,7 @@ import { ImageAssetResponseDto } from '../../application/dtos/responses/image-as
 import { Throttle } from '@nestjs/throttler';
 
 @ApiTags('Uploads')
-@Controller('api/v1/uploads')
+@Controller('uploads')
 @ApiBearerAuth()
 export class UploadsController {
   constructor(

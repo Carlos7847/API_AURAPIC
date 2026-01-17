@@ -55,6 +55,8 @@ services:
       dockerfile: Dockerfile
       target: runner # Usar stage final
     restart: unless-stopped
+    env_file:
+    - .env
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@aura-db:5432/${DB_NAME:-aura_db}?schema=public

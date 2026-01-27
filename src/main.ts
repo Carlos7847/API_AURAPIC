@@ -70,10 +70,7 @@ async function bootstrap() {
 
   app.use(helmet());
   app.enableCors({
-    origin:
-      configService.getEnvironment() === 'production'
-        ? ['https://mi-frontend-real.com']
-        : ['http://localhost:3000', 'http://localhost:5173'],
+    origin: configService.getCorsOrigins(),
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });

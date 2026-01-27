@@ -13,8 +13,6 @@ export class VerifyEmailUseCase {
   ) {}
 
   async execute(rawToken: string): Promise<void> {
-    // 1. Hashear el token recibido para buscarlo en la DB
-    // (Recuerda: En DB guardamos el hash, en el email enviamos el raw)
     const tokenHash = await this.hashingService.hashToken(rawToken);
 
     // 2. Buscar la credencial asociada a ese token
@@ -24,14 +22,13 @@ export class VerifyEmailUseCase {
       );
 
     if (!credential) {
-      // Security: No reveles si el token no existe o qué pasó exactamente
+      // por security no se revela si el token no existe o qué pasó exactamente
       throw new InvalidTokenError();
     }
 
-    // 3. Validar Expiración (Lógica de Dominio)
-    // Aquí usamos los campos que agregaste recientemente a la Entidad y Repositorio
+    // 3. Validar Expiración
     if (!credential.emailVerificationExpiresAt) {
-      throw new InvalidTokenError(); // Caso raro: hay token pero no fecha
+      throw new InvalidTokenError(); // maybe caso raro: hay token pero no fecha
     }
 
     const isExpired = this.dateService.isAfter(
@@ -40,16 +37,14 @@ export class VerifyEmailUseCase {
     );
 
     if (isExpired) {
-      // Opcional: Podrías lanzar un TokenExpiredError específico si quieres que el front pida uno nuevo
+      // se podría lanzar un TokenExpiredError específico si se pide al front que pida uno nuevo
       throw new InvalidTokenError();
     }
 
     // 4. Marcar el usuario como verificado
-    // Necesitas agregar este método en tu UserRepositoryPort si no existe
     await this.userRepository.verifyEmail(credential.userId);
 
-    // 5. Limpieza: Eliminar el token usado para evitar ataques de replay
-    // Pasamos null para borrar el token y la fecha
+    // 5. Eliminar el token usado para evitar ataques de replay
     await this.authCredentialRepository.updateEmailVerificationToken(
       credential.userId,
       null,

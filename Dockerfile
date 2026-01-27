@@ -58,7 +58,7 @@ COPY --from=builder --chown=node:node /usr/src/app/prisma ./prisma
 USER node
 
 # Exponer el puerto de la aplicación
-EXPOSE 3000
+EXPOSE 3001
 
 # Comando de inicio
 CMD ["node", "dist/src/main"]

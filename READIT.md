@@ -846,7 +846,7 @@ pnpm exec prisma migrate dev
 pnpm start:dev
 
 # 5. Verificar
-curl http://localhost:3000/health
+curl http://localhost:3001/api/v1/health
 # Response: { "status": "ok" }
 ```
 
@@ -877,7 +877,7 @@ FRONTEND_URL="http://localhost:3000"
 
 # Environment
 NODE_ENV="development"
-PORT=3000
+PORT=3001
 CORS_ORIGINS="http://localhost:3000,http://localhost:3001"
 ```
 

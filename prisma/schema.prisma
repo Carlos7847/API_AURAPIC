@@ -57,8 +57,6 @@ model User {
   imageAssets ImageAsset[]
   jobs        Job[]
 
-  // Logs
-  // Logs
   auditLogs    AuditLog[]
   subscription Subscription?
   payments     Payment[]

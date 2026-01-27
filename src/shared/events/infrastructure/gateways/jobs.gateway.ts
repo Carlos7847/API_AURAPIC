@@ -11,6 +11,7 @@ import { LoggerPort } from 'src/shared/logger/domain/logger.port';
 import { EventEmitterPort } from '../../domain/ports/event-emitter.port';
 import { JobStatusChangedEvent } from '../../domain/events/job-status-changed.event';
 import { ConfigService } from '@nestjs/config';
+import { CORS_ORIGINS } from '../../../constants/infrastructure/app.constants';
 
 interface JwtPayload {
   id?: string;
@@ -37,9 +38,8 @@ interface SocketData {
       origin: string | undefined,
       callback: (err: Error | null, allow?: boolean) => void,
     ) => {
-      const allowedOrigins = process.env.CORS_ORIGIN?.split(',') || [
-        'http://localhost:3001',
-      ];
+      const allowedOrigins =
+        process.env.CORS_ORIGINS?.split(',') || CORS_ORIGINS;
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
@@ -129,5 +129,26 @@ export class JobsGateway
     );
 
     this.server.to(room).emit('job:status', event);
+  }
+
+  /**
+   * Emit credits update to specific user (for payment notifications)
+   */
+  emitCreditsUpdate(event: {
+    userId: string;
+    creditsAdded: number;
+    newTotal: number;
+    source: string; // 'payment', 'refund', etc.
+    timestamp: Date;
+    paymentId?: string;
+  }): void {
+    const room = `user:${event.userId}`;
+
+    this.logger.debug(
+      `Emitting credits:updated to ${room} - ${event.creditsAdded} credits added (new total: ${event.newTotal})`,
+      JobsGateway.name,
+    );
+
+    this.server.to(room).emit('credits:updated', event);
   }
 }

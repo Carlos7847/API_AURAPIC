@@ -4,7 +4,7 @@ const envSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'production', 'test'])
     .default('development'),
-  PORT: z.coerce.number().default(3000),
+  PORT: z.coerce.number(),
 
   DATABASE_URL: z.string().url(),
 
@@ -23,7 +23,7 @@ const envSchema = z.object({
 
   MAIL_FROM: z.string().default('"No Reply" <noreply@gmail.com>'),
 
-  FRONTEND_URL: z.string().url().default('http://localhost:3000'),
+  FRONTEND_URL: z.string().url(),
 
   // AWS S3
   AWS_REGION: z.string().default('us-east-1'),

@@ -6,6 +6,7 @@ import { LoggerPort } from 'src/shared/logger/domain/logger.port';
 import { SubscriptionNotFoundError } from '../../domain/errors/billing.errors';
 import { ProcessedEventRepositoryPort } from 'src/shared/events/domain/repositories/processed-event.repository.port';
 import { ProcessedEvent } from 'src/shared/events/domain/entities/processed-event.entity';
+import { EventEmitterPort } from 'src/shared/events/domain/ports/event-emitter.port';
 import { randomUUID } from 'node:crypto';
 
 /**
@@ -21,6 +22,7 @@ export class PaymentApprovedHandler implements OnModuleInit {
     private readonly eventBus: EventBusPort,
     private readonly subscriptionRepository: SubscriptionRepositoryPort,
     private readonly processedEventRepository: ProcessedEventRepositoryPort,
+    private readonly eventEmitter: EventEmitterPort,
     private readonly logger: LoggerPort,
   ) {}
 
@@ -106,5 +108,28 @@ export class PaymentApprovedHandler implements OnModuleInit {
       `Credits added: ${creditsAmount} to user ${userId}. New balance: ${subscription.creditsRemaining}`,
       PaymentApprovedHandler.name,
     );
+
+    // 🚀 REAL-TIME NOTIFICATION: Emit WebSocket event
+    try {
+      this.eventEmitter.emitCreditsUpdate({
+        userId,
+        creditsAdded: creditsAmount,
+        newTotal: subscription.creditsRemaining,
+        source: 'payment',
+        timestamp: new Date(),
+        paymentId,
+      });
+
+      this.logger.debug(
+        `WebSocket notification sent for user ${userId} - ${creditsAmount} credits added`,
+        PaymentApprovedHandler.name,
+      );
+    } catch (wsError) {
+      // Non-critical: Log but don't fail the entire handler
+      this.logger.warn(
+        `Failed to emit WebSocket notification: ${wsError instanceof Error ? wsError.message : 'Unknown error'}`,
+        PaymentApprovedHandler.name,
+      );
+    }
   }
 }

@@ -7,11 +7,6 @@ import { LoggerPort } from 'src/shared/logger/domain/logger.port';
 /**
  * BullMQ Queue Adapter
  * Implementación concreta de QueueServicePort usando BullMQ
- *
- * Infrastructure Layer - @Injectable es apropiado:
- * - Es una dependencia concreta (BullMQ)
- * - NestJS la inyecta en módulos
- * - Específica de este framework
  */
 @Injectable()
 export class BullMqQueueAdapter implements QueueServicePort {

@@ -36,8 +36,6 @@ import {
 
 /**
  * Jobs Controller
- * Primary Adapter (Driving Adapter) - Escucha HTTP
- *
  * Endpoints:
  * - POST /jobs → Crear job (Producer: encola para procesamiento)
  * - GET /jobs/:id → Obtener estado de job
@@ -85,7 +83,7 @@ export class JobsController {
     @Req() req: AuthenticatedRequest,
     @Body() dto: CreateJobDto,
   ): Promise<JobResponseDto> {
-    const userId = req.user.id;
+    const userId = req.user.userId;
     this.logger.debug(`Creating job for user ${userId}`, JobsController.name);
     const job = await this.createJobUseCase.execute(userId, dto);
     return JobResponseMapper.toDto(job);
@@ -129,7 +127,7 @@ export class JobsController {
     @Req() req: AuthenticatedRequest,
     @Param('id') jobId: string,
   ): Promise<JobResponseDto> {
-    const userId = req.user.id;
+    const userId = req.user.userId;
     this.logger.debug(
       `Getting job ${jobId} for user ${userId}`,
       JobsController.name,
@@ -172,7 +170,7 @@ export class JobsController {
     @Query('limit') limit: number = 50,
     @Query('offset') offset: number = 0,
   ): Promise<{ data: JobResponseDto[]; total: number }> {
-    const userId = req.user.id;
+    const userId = req.user.userId;
     this.logger.debug(
       `Listing jobs for user ${userId}, status: ${status}, limit: ${limit}, offset: ${offset}`,
       JobsController.name,
@@ -207,7 +205,7 @@ export class JobsController {
     @Req() req: AuthenticatedRequest,
     @Param('id') jobId: string,
   ): Promise<void> {
-    const userId = req.user.id;
+    const userId = req.user.userId;
     this.logger.debug(
       `Cancelling job ${jobId} for user ${userId}`,
       JobsController.name,

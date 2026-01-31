@@ -24,12 +24,12 @@ export class CreditGuard implements CanActivate {
       .getRequest<AuthenticatedRequest & { subscription?: Subscription }>();
     const user = request.user;
 
-    if (!user || !user.id) {
+    if (!user || !user.userId) {
       throw new ForbiddenException('User not authenticated');
     }
 
     try {
-      const subscription = await this.getUserSubscription.execute(user.id);
+      const subscription = await this.getUserSubscription.execute(user.userId);
 
       if (!subscription.hasCredits()) {
         throw new ForbiddenException(

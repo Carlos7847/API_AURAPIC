@@ -40,6 +40,7 @@ export class PresignUploadUseCase {
 
     this.logger.debug(
       `Presigning upload for user ${userId}, file: ${dto.filename}, kind: ${dto.kind}, key: ${storageKey}`,
+      PresignUploadUseCase.name,
     );
 
     // 3. Crear registro de ImageAsset en BD
@@ -60,6 +61,7 @@ export class PresignUploadUseCase {
 
     this.logger.debug(
       `Successfully generated presigned URL for image ${imageAsset.id}`,
+      PresignUploadUseCase.name,
     );
 
     return new PresignedUrlResponseDto({

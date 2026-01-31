@@ -19,8 +19,8 @@ import { PAYMENT_REFERENCE_PREFIX } from '../../domain/constants/payment.constan
 export interface CreatePreferenceRequest {
   userId: string;
   packageId: string;
-  providerCode: string; // NEW: Selected payment provider
-  idempotencyKey?: string; // NEW: For duplicate prevention
+  providerCode: string; // Selected payment provider
+  idempotencyKey?: string; // For duplicate prevention
   successUrl?: string;
   failureUrl?: string;
   pendingUrl?: string;
@@ -71,7 +71,6 @@ export class CreatePreferenceUseCase {
       }
     }
 
-    // 2. Validate payment provider exists and is available
     const provider = await this.providerRepository.findByCode(
       request.providerCode,
     );
@@ -111,7 +110,7 @@ export class CreatePreferenceUseCase {
       paymentId,
       request.userId,
       provider.id, // NEW: Provider ID
-      '', // preferenceId will be set after creation
+      '', // THIS preferenceId will be set after f creation
       packageEntity.price,
       packageEntity.credits,
       packageEntity.id,
@@ -120,7 +119,7 @@ export class CreatePreferenceUseCase {
 
     // 5. Create preference using the selected provider's adapter
     const frontendUrl = this.config.getFrontendUrl();
-    const notificationUrl = this.config.getMercadoPagoNotificationUrl();
+    const notificationUrl = this.config.getMercadoPagoNotificationUrl(); // webhook
 
     const preference = await adapter.createPreference({
       title: `${packageEntity.name} - ${packageEntity.credits} créditos`,

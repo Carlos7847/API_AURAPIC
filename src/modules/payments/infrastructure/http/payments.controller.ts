@@ -158,7 +158,7 @@ export class PaymentsController {
     @Req() req: AuthenticatedRequest,
     @Body() dto: CreatePaymentDto,
   ) {
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
     this.logger.log(
       `Creating payment preference for user ${userId} - Package: ${dto.packageId}`,
@@ -221,7 +221,6 @@ export class PaymentsController {
       //   JSON.stringify(body),
       // );
 
-      // Validate webhook data
       if (!body.data?.id) {
         this.logger.warn(
           'Webhook missing data.id - skipping',

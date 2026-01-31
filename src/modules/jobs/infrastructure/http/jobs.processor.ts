@@ -47,7 +47,7 @@ export class JobsProcessor extends WorkerHost {
     try {
       const result = await this.processJobUseCase.execute(jobId);
 
-      // Emit real-time event for job completion
+      //  job complete
       this.eventEmitter.emitJobStatus({
         jobId: result.jobId,
         userId: job.data.userId,
@@ -59,7 +59,6 @@ export class JobsProcessor extends WorkerHost {
 
       return result;
     } catch (error) {
-      // Emit real-time event for job failure
       this.eventEmitter.emitJobStatus({
         jobId,
         userId: job.data.userId,

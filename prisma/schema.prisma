@@ -94,7 +94,7 @@ model Memory {
   ownerType String // "USER", "JOB", "GLOBAL"
   ownerId   String? // userId or jobId
   content   String // The text content
-  embedding Unsupported("vector(768)")? // Gemini Embedding dimensions
+  embedding Unsupported("vector(768)")? //  Gemini (default) Embedding dimensions
   metadata  Json?
   createdAt DateTime                    @default(now())
 
@@ -242,7 +242,7 @@ model AuthCredential {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Un usuario no puede tener dos credenciales del mismo proveedor
+  // un usuario no puede tener dos credenciales del mismo proveedor
   @@unique([provider, providerUserId])
   // Un usuario solo debe tener una credencial de cada tipo (ej: solo un google, solo una password)
   @@unique([userId, provider])
@@ -330,7 +330,7 @@ model JobResult {
   job       Job         @relation(fields: [jobId], references: [id], onDelete: Cascade)
   imageId   String?     @unique
   image     ImageAsset? @relation(fields: [imageId], references: [id], onDelete: SetNull)
-  url       String // URL del resultado en S3
+  url       String // URL del resultado en el Storage (S3)
   width     Int?
   height    Int?
   sizeBytes Int?

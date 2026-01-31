@@ -46,8 +46,7 @@ interface ParsedAnalysisData {
  * Real implementation using Google's @google/genai SDK
  *
  * @implements {AiProcessorServicePort}
- * @description Processes images using Google Gemini AI models with retry logic,
- * error handling, and safety filters
+ * @description Processes images using Google Gemini AI models with retry logic
  */
 import { EmbeddingGeneratorPort } from '../../domain/ports/embedding-generator.port';
 

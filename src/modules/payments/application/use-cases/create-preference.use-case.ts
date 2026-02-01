@@ -9,12 +9,13 @@ import {
 } from '../../domain/errors/payment.errors';
 import { EnvironmentConfigService } from 'src/shared/config/infrastructure/environment-config.service';
 import { PaymentProviderRepositoryPort } from '../../domain/ports/payment-provider.repository.port';
-import { PaymentProviderFactory } from '../services/payment-provider.factory';
+import { PaymentProviderFactoryPort } from '../../domain/ports/payment-provider-factory.port';
 import {
   PaymentProviderNotFoundError,
   PaymentProviderNotAvailableError,
 } from '../../domain/errors/payment.errors';
 import { PAYMENT_REFERENCE_PREFIX } from '../../domain/constants/payment.constants';
+import { PaymentStatus } from '../../domain/enums/payment-status.enum';
 
 export interface CreatePreferenceRequest {
   userId: string;
@@ -45,7 +46,7 @@ export class CreatePreferenceUseCase {
     private readonly paymentRepository: PaymentRepositoryPort,
     private readonly packageRepository: CreditPackageRepositoryPort,
     private readonly providerRepository: PaymentProviderRepositoryPort,
-    private readonly providerFactory: PaymentProviderFactory,
+    private readonly providerFactory: PaymentProviderFactoryPort,
     private readonly config: EnvironmentConfigService,
   ) {}
 
@@ -102,61 +103,79 @@ export class CreatePreferenceUseCase {
       throw new PackageInactiveError(packageEntity.id, packageEntity.name);
     }
 
-    // 4. Create payment record
+    // 4. Create payment record with INITIALIZING status
     const paymentId = randomUUID();
     const externalReference = `${PAYMENT_REFERENCE_PREFIX}${paymentId}`;
 
     const payment = Payment.create(
       paymentId,
       request.userId,
-      provider.id, // NEW: Provider ID
-      '', // THIS preferenceId will be set after f creation
+      provider.id,
+      '', // preferenceId will be set after provider creation
       packageEntity.price,
       packageEntity.credits,
       packageEntity.id,
       packageEntity.currency,
     );
 
-    // 5. Create preference using the selected provider's adapter
-    const frontendUrl = this.config.getFrontendUrl();
-    const notificationUrl = this.config.getMercadoPagoNotificationUrl(); // webhook
-
-    const preference = await adapter.createPreference({
-      title: `${packageEntity.name} - ${packageEntity.credits} créditos`,
-      description: packageEntity.description || undefined,
-      quantity: 1,
-      unitPrice: packageEntity.price,
-      currency: packageEntity.currency,
-      externalReference,
-      backUrls: {
-        success: request.successUrl || `${frontendUrl}/payment/success`,
-        failure: request.failureUrl || `${frontendUrl}/payment/failure`,
-        pending: request.pendingUrl || `${frontendUrl}/payment/pending`,
-      },
-      notificationUrl,
-      metadata: {
-        paymentId,
-        userId: request.userId,
-        packageId: packageEntity.id,
-      },
-    });
-
-    // 6. Update payment with preferenceId and save
-    const updatedPayment = Payment.restore({
+    // Override status to INITIALIZING (payment record exists but preference not yet created)
+    // This ensures traceability even if the provider call fails
+    const initializedPayment = Payment.restore({
       ...payment.toObject(),
-      preferenceId: preference.id,
-      externalReference,
+      status: PaymentStatus.INITIALIZING,
     });
 
-    await this.paymentRepository.create(updatedPayment);
+    // 5. STEP 1 OF SAGA: Save payment to database FIRST
+    // This ensures we have a record even if the external provider call fails
+    await this.paymentRepository.create(initializedPayment);
 
-    return {
-      paymentId: updatedPayment.id,
-      preferenceId: preference.id,
-      initPoint: preference.initPoint,
-      amount: packageEntity.price,
-      currency: packageEntity.currency,
-      credits: packageEntity.credits,
-    };
+    try {
+      // 6. STEP 2 OF SAGA: Create preference with external provider (MercadoPago)
+      const frontendUrl = this.config.getFrontendUrl();
+      const notificationUrl = this.config.getMercadoPagoNotificationUrl();
+
+      const preference = await adapter.createPreference({
+        title: `${packageEntity.name} - ${packageEntity.credits} créditos`,
+        description: packageEntity.description || undefined,
+        quantity: 1,
+        unitPrice: packageEntity.price,
+        currency: packageEntity.currency,
+        externalReference,
+        backUrls: {
+          success: request.successUrl || `${frontendUrl}/payment/success`,
+          failure: request.failureUrl || `${frontendUrl}/payment/failure`,
+          pending: request.pendingUrl || `${frontendUrl}/payment/pending`,
+        },
+        notificationUrl,
+        metadata: {
+          paymentId,
+          userId: request.userId,
+          packageId: packageEntity.id,
+        },
+      });
+
+      // 7. STEP 3 OF SAGA: Update payment with preferenceId (transition to PENDING)
+      initializedPayment.setPreferenceId(preference.id, externalReference);
+      await this.paymentRepository.save(initializedPayment);
+
+      return {
+        paymentId: initializedPayment.id,
+        preferenceId: preference.id,
+        initPoint: preference.initPoint,
+        amount: packageEntity.price,
+        currency: packageEntity.currency,
+        credits: packageEntity.credits,
+      };
+    } catch (error) {
+      // COMPENSATION/ROLLBACK: Mark payment as failed if provider creation fails
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+
+      initializedPayment.markAsInitializationFailed(errorMessage);
+      await this.paymentRepository.save(initializedPayment);
+
+      // Re-throw to let the controller handle the HTTP response
+      throw error;
+    }
   }
 }

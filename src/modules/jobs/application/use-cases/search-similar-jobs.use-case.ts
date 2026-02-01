@@ -42,7 +42,7 @@ export class SearchSimilarJobsUseCase {
         const metadata = mem.metadata as JobMetadata | undefined;
 
         return {
-          jobId: mem.ownerId as string, // Guaranteed non-null after filter
+          jobId: mem.ownerId, // Guaranteed non-null after filter
           prompt: mem.content,
           similarity: mem.similarity,
           resultUrl: metadata?.resultUrl,

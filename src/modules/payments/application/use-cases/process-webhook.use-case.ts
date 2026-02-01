@@ -8,7 +8,7 @@ import {
 import { Payment } from '../../domain/entities/payment.entity';
 import { PaymentProviderDetails } from '../../domain/ports/payment-provider.port';
 import { LoggerPort } from 'src/shared/logger/domain/logger.port';
-import { PaymentProviderFactory } from '../services/payment-provider.factory';
+import { PaymentProviderFactoryPort } from '../../domain/ports/payment-provider-factory.port';
 import { PAYMENT_REFERENCE_PREFIX } from '../../domain/constants/payment.constants';
 import { OutboxEventRepositoryPort } from 'src/shared/events/domain/repositories/outbox-event.repository.port';
 import { OutboxEvent } from 'src/shared/events/domain/entities/outbox-event.entity';
@@ -32,7 +32,7 @@ export interface ProcessWebhookRequest {
 export class ProcessWebhookUseCase {
   constructor(
     private readonly paymentRepository: PaymentRepositoryPort,
-    private readonly providerFactory: PaymentProviderFactory,
+    private readonly providerFactory: PaymentProviderFactoryPort,
     private readonly outboxRepository: OutboxEventRepositoryPort,
     private readonly prisma: PrismaService,
     private readonly logger: LoggerPort,

@@ -1,4 +1,5 @@
 export enum PaymentStatus {
+  INITIALIZING = 'INITIALIZING', // Payment record created, awaiting provider preference creation
   PENDING = 'PENDING',
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',

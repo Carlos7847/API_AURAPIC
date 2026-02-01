@@ -9,13 +9,20 @@ import { PaymentRepositoryPort } from './domain/ports/payment.repository.port';
 import { CreditPackageRepositoryPort } from './domain/ports/credit-package.repository.port';
 import { PaymentProviderPort } from './domain/ports/payment-provider.port';
 import { PaymentProviderRepositoryPort } from './domain/ports/payment-provider.repository.port';
+import { PaymentProviderFactoryPort } from './domain/ports/payment-provider-factory.port';
 
 // Infrastructure Implementations
 import { PrismaPaymentRepository } from './infrastructure/persistence/prisma-payment.repository';
 import { PrismaCreditPackageRepository } from './infrastructure/persistence/prisma-credit-package.repository';
 import { PrismaPaymentProviderRepository } from './infrastructure/persistence/prisma-payment-provider.repository';
 import { MercadoPagoAdapter } from './infrastructure/adapters/mercadopago.adapter';
-import { PaymentProviderFactory } from './application/services/payment-provider.factory';
+import {
+  PaymentProviderFactory,
+  PAYMENT_PROVIDER_REGISTRY,
+} from './infrastructure/services/payment-provider.factory';
+
+// Domain Constants
+import { PAYMENT_PROVIDERS } from './domain/constants/payment.constants';
 
 // Use Cases
 import { CreatePreferenceUseCase } from './application/use-cases/create-preference.use-case';
@@ -51,7 +58,7 @@ import { PaymentsController } from './infrastructure/http/payments.controller';
       useClass: PrismaPaymentProviderRepository,
     },
 
-    // Payment Provider Adapters (as concrete classes for factory injection)
+    // Payment Provider Adapters (concrete classes)
     MercadoPagoAdapter,
 
     {
@@ -59,8 +66,25 @@ import { PaymentsController } from './infrastructure/http/payments.controller';
       useClass: MercadoPagoAdapter,
     },
 
-    // Services
-    PaymentProviderFactory,
+    // Provider Registry (Map-based for Open/Closed compliance)
+    // To add a new provider: 1) Create adapter, 2) Add to this Map
+    {
+      provide: PAYMENT_PROVIDER_REGISTRY,
+      useFactory: (mercadoPago: MercadoPagoAdapter) => {
+        const registry = new Map<string, PaymentProviderPort>();
+        registry.set(PAYMENT_PROVIDERS.MERCADO_PAGO, mercadoPago);
+        // Future: registry.set(PAYMENT_PROVIDERS.CULQI, culqiAdapter);
+        // Future: registry.set(PAYMENT_PROVIDERS.CRYPTO, cryptoAdapter);
+        return registry;
+      },
+      inject: [MercadoPagoAdapter],
+    },
+
+    // Factory bound to abstract port (Dependency Rule compliance)
+    {
+      provide: PaymentProviderFactoryPort,
+      useClass: PaymentProviderFactory,
+    },
 
     // Use Cases
     CreatePreferenceUseCase,

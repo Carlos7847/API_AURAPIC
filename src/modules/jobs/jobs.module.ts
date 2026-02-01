@@ -10,7 +10,6 @@ import { JobRepositoryPort } from './domain/ports/job.repository.port';
 import { QueueServicePort } from './domain/ports/queue.service.port';
 import { AiProcessorServicePort } from 'src/shared/ai/domain/ports/ai-processor.port';
 import { AiModule } from 'src/shared/ai/ai.module';
-import { GeminiAiAdapter } from 'src/shared/ai/infrastructure/adapters/gemini-ai.adapter';
 import { DeductCreditUseCase } from '../billing/application/use-cases/deduct-credit.use-case';
 import { RefundCreditUseCase } from '../billing/application/use-cases/refund-credit.use-case';
 import { ImageAssetRepositoryPort } from '../uploads/domain/ports/image-asset.repository.port';
@@ -65,19 +64,13 @@ import { JobsProcessor } from './infrastructure/http/jobs.processor';
       useClass: BullMqQueueAdapter,
     },
 
-    {
-      provide: AiProcessorServicePort,
-      useExisting: GeminiAiAdapter,
-    },
-    {
-      provide: EmbeddingGeneratorPort,
-      useExisting: GeminiAiAdapter,
-    },
+    // Memory Repository (uses Prisma for vector storage)
     {
       provide: MemoryRepositoryPort,
       useClass: PrismaMemoryRepository,
     },
 
+    // AiProcessorServicePort and EmbeddingGeneratorPort => provided by AiModule and available via its exports
     {
       provide: CreateJobUseCase,
       useFactory: (
@@ -178,6 +171,6 @@ import { JobsProcessor } from './infrastructure/http/jobs.processor';
     // Processor (Consumer) - Solo si estamos en modo worker
     ...(process.env.ENABLE_WORKER === 'true' ? [JobsProcessor] : []),
   ],
-  exports: [JobRepositoryPort, QueueServicePort, AiProcessorServicePort],
+  exports: [JobRepositoryPort, QueueServicePort],
 })
 export class JobsModule {}

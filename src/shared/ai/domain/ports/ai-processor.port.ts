@@ -2,13 +2,15 @@ import { AiGenerationMode } from '../enums/ai-modes.enum';
 import { AiProcessingResult } from '../types/ai-types';
 
 /**
- * AI Processor Service Port (Abstraction)
- * Define operaciones para procesamiento de imágenes con IA
- * Permite diferentes implementaciones (Gemini, OpenAI, etc.)
+ * AI Processor Service Port
+ *
+ * Defines operations for AI image processing.
+ * Allows different implementations (Gemini, OpenAI, etc.)
+ *
  */
 export abstract class AiProcessorServicePort {
   /**
-   * Procesa una imagen según el modo solicitado
+   * Process an image according to the requested mode
    */
   abstract processImage(data: {
     imageUrl: string;
@@ -18,12 +20,12 @@ export abstract class AiProcessorServicePort {
   }): Promise<AiProcessingResult>;
 
   /**
-   * Valida que el modo solicitado sea soportado
+   * Validate that the requested mode is supported
    */
   abstract isModeSupported(mode: string): boolean;
 
   /**
-   * Obtiene lista de modos soportados
+   * Get list of supported modes
    */
   abstract getSupportedModes(): string[];
 }

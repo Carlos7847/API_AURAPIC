@@ -173,6 +173,43 @@ export class Payment {
   }
 
   /**
+   * Set preference ID and transition to PENDING
+   * Called after successful provider preference creation
+   */
+  setPreferenceId(preferenceId: string, externalReference: string): void {
+    if (this.props.status !== PaymentStatus.INITIALIZING) {
+      throw new InvalidPaymentStateError(
+        this.id,
+        this.props.status,
+        'setPreferenceId',
+      );
+    }
+
+    this.props.preferenceId = preferenceId;
+    this.props.externalReference = externalReference;
+    this.props.status = PaymentStatus.PENDING;
+    this.props.updatedAt = new Date();
+  }
+
+  /**
+   * Mark payment as failed during initialization
+   * Used in compensation/rollback scenarios
+   */
+  markAsInitializationFailed(reason: string): void {
+    if (this.props.status !== PaymentStatus.INITIALIZING) {
+      throw new InvalidPaymentStateError(
+        this.id,
+        this.props.status,
+        'markAsInitializationFailed',
+      );
+    }
+
+    this.props.status = PaymentStatus.REJECTED;
+    this.props.statusDetail = `Initialization failed: ${reason}`;
+    this.props.updatedAt = new Date();
+  }
+
+  /**
    * Factory method: Create new payment
    */
   static create(

@@ -1,24 +1,38 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/shared/persistence/prisma/prisma.service';
+import { PrismaService } from '../../../../shared/persistence/prisma/prisma.service';
 import { MemoryRepositoryPort } from '../../domain/ports/memory.repository.port';
-import { Memory } from '@prisma/client';
+import {
+  MemoryEntity,
+  MemoryWithSimilarity,
+  CreateMemoryInput,
+} from '../../domain/entities/memory.entity';
 
+/**
+ * Raw query result type for similarity search
+ */
+interface RawSimilarityResult {
+  id: string;
+  ownerType: string;
+  ownerId: string;
+  content: string;
+  metadata: Record<string, unknown> | null;
+  createdAt: Date;
+  similarity: number;
+}
+
+/**
+ * Prisma Memory Repository
+ *
+ * Implementation of MemoryRepositoryPort using Prisma with pgvector.
+ */
 @Injectable()
-export class PrismaMemoryRepository implements MemoryRepositoryPort {
-  constructor(private readonly prisma: PrismaService) {}
+export class PrismaMemoryRepository extends MemoryRepositoryPort {
+  constructor(private readonly prisma: PrismaService) {
+    super();
+  }
 
-  async save(data: {
-    ownerType: string;
-    ownerId: string;
-    content: string;
-    embedding: number[];
-    metadata?: Record<string, any>;
-  }): Promise<Memory> {
-    ////   prisma issue with vector fields because it has no types
+  async save(data: CreateMemoryInput): Promise<MemoryEntity> {
     const vectorString = `[${data.embedding.join(',')}]`;
-
-    // We first create the record without embedding if possible, or use raw for everything.
-    // Raw is safer for vector fields.
     const id = crypto.randomUUID();
 
     await this.prisma.$executeRaw`
@@ -29,30 +43,28 @@ export class PrismaMemoryRepository implements MemoryRepositoryPort {
         ${data.ownerId}, 
         ${data.content}, 
         ${vectorString}::vector, 
-        ${data.metadata || {}}, 
+        ${data.metadata ?? {}}, 
         NOW()
       )
     `;
 
-    // Return the created record (without embedding vector data to avoid huge parsing)
-    return this.prisma.memory.findUniqueOrThrow({
+    // Return domain entity (not Prisma model)
+    const saved = await this.prisma.memory.findUniqueOrThrow({
       where: { id },
     });
+
+    return this.mapToEntity(saved);
   }
 
   async findSimilar(
     embedding: number[],
     limit: number = 5,
     ownerType: string,
-    minScore: number = 0.7, // 0.7 is a decent baseline for "relation"
-  ): Promise<Array<Memory & { similarity: number }>> {
+    minScore: number = 0.7,
+  ): Promise<MemoryWithSimilarity[]> {
     const vectorString = `[${embedding.join(',')}]`;
 
-    // Calculate Cosine Similarity: 1 - (embedding <=> vector)
-    // Using CAST for type safety if needed, though raw works well with ::vector
-    const results = await this.prisma.$queryRaw<
-      Array<Memory & { similarity: number }>
-    >`
+    const results = await this.prisma.$queryRaw<RawSimilarityResult[]>`
       SELECT 
         id, 
         "ownerType", 
@@ -68,6 +80,47 @@ export class PrismaMemoryRepository implements MemoryRepositoryPort {
       LIMIT ${limit};
     `;
 
-    return results;
+    return results.map((row) => this.mapToEntityWithSimilarity(row));
+  }
+
+  /**
+   * Map Prisma model to domain entity
+   */
+  private mapToEntity(prismaRecord: {
+    id: string;
+    ownerType: string;
+    ownerId: string | null;
+    content: string;
+    metadata: unknown;
+    createdAt: Date;
+    embedding?: unknown;
+  }): MemoryEntity {
+    return {
+      id: prismaRecord.id,
+      ownerType: prismaRecord.ownerType,
+      ownerId: prismaRecord.ownerId ?? '',
+      content: prismaRecord.content,
+      metadata: (prismaRecord.metadata as Record<string, unknown>) ?? undefined,
+      createdAt: prismaRecord.createdAt,
+      embedding: [], // Embedding not returned to avoid large data transfer
+    };
+  }
+
+  /**
+   * Map raw query result to domain entity with similarity
+   */
+  private mapToEntityWithSimilarity(
+    row: RawSimilarityResult,
+  ): MemoryWithSimilarity {
+    return {
+      id: row.id,
+      ownerType: row.ownerType,
+      ownerId: row.ownerId,
+      content: row.content,
+      metadata: row.metadata ?? undefined,
+      createdAt: row.createdAt,
+      embedding: [], // Embedding not returned to avoid large data transfer
+      similarity: row.similarity,
+    };
   }
 }

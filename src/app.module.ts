@@ -26,11 +26,25 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { BullModule } from '@nestjs/bullmq';
 import { EnvironmentConfigService } from './shared/config/infrastructure/environment-config.service';
 import { EnvironmentConfigModule } from './shared/config/infrastructure/environment-config.module';
+import { LoggerModule as PinoLoggerModule } from 'nestjs-pino';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate }),
-    LoggerModule,
+    PinoLoggerModule.forRoot({
+      pinoHttp: {
+        redact: {
+          paths: [
+            'req.headers.authorization',
+            'req.headers.cookie',
+            'req.body.password',
+            'req.body.token',
+            'req.body.refreshToken',
+          ],
+          remove: true,
+        },
+      },
+    }),
     EventsModule,
     DomainEventsModule,
     HealthModule,
@@ -42,7 +56,7 @@ import { EnvironmentConfigModule } from './shared/config/infrastructure/environm
     AdminModule,
     PaymentsModule,
     BullModule.forRootAsync({
-      imports: [EnvironmentConfigModule],
+      imports: [EnvironmentConfigModule, LoggerModule],
       inject: [EnvironmentConfigService],
       useFactory: (config: EnvironmentConfigService) => ({
         connection: {

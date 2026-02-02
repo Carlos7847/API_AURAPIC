@@ -47,7 +47,13 @@ export class EnvironmentConfigService
 
   getCorsOrigins(): string[] {
     const origins = this.configService.get('CORS_ORIGINS', { infer: true });
-    return origins ? origins.split(',') : [''];
+    if (!origins) {
+      return [];
+    }
+    return origins
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter((origin) => origin.length > 0);
   }
 
   // --- EMAIL ---

@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-// import { Logger } from 'nestjs-pino';
+import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import {
@@ -31,7 +31,7 @@ async function bootstrap() {
     bufferLogs: true, // Buffer logs until Pino is attached
   });
 
-  // app.useLogger(app.get(Logger));
+  app.useLogger(app.get(Logger));
 
   const configService = app.get(EnvironmentConfigService);
 
@@ -68,7 +68,26 @@ async function bootstrap() {
     app.useWebSocketAdapter(redisIoAdapter);
   }
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", 'data:', 'https:'],
+          connectSrc: ["'self'"],
+          fontSrc: ["'self'", 'https:', 'data:'],
+          objectSrc: ["'none'"],
+          mediaSrc: ["'self'"],
+          frameSrc: ["'none'"],
+          upgradeInsecureRequests: [],
+          blockAllMixedContent: [],
+        },
+      },
+      crossOriginEmbedderPolicy: false,
+    }),
+  );
   app.enableCors({
     origin: configService.getCorsOrigins(),
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',

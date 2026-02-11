@@ -116,9 +116,9 @@ We document critical technical decisions to provide context for future maintaine
 ### Key Modules
 
 - **IAM**: JWT Authentication, Hashing with Argon2.
-- **Jobs**: AI Orchestration, State Machine (Pending -> Processing -> Completed).
-- **Billing**: Event-driven credits system. Listens to `PaymentApprovedEvent`.
-- **Payments**: Strategy pattern for multiple providers (Mercado Pago, Culqi).
+- **Jobs**: AI Orchestration, State Machine (Pending -> Processing -> Completed). Now includes original filename metadata.
+- **Billing**: Event-driven credits system. Listens to `PaymentApprovedEvent`. Exposes subscription/credits endpoint.
+- **Payments**: Strategy pattern for multiple providers (Mercado Pago, Culqi). Payment history tracking with full audit trail.
 
 ---
 
@@ -153,6 +153,81 @@ We document critical technical decisions to provide context for future maintaine
   "statusCode": 402,
   "message": "Insufficient credits. Required: 1, Available: 0",
   "error": "Payment Required"
+}
+```
+
+---
+
+### Payment History (GET `/payments`)
+
+**Description:** Retrieve paginated payment history for authenticated user.
+
+**Query Parameters:**
+
+- `limit` (optional): Items per page (default: 20)
+- `offset` (optional): Pagination offset (default: 0)
+
+**Success Response (200 OK):**
+
+```json
+{
+  "data": [
+    {
+      "id": "pay_abc123",
+      "providerCode": "mercadopago",
+      "amount": 20.0,
+      "currency": "PEN",
+      "status": "APPROVED",
+      "description": "Pro Package - 60 Credits",
+      "creditsAmount": 60,
+      "paymentMethodId": "visa",
+      "createdAt": "2026-01-15T10:30:00Z",
+      "approvedAt": "2026-01-15T10:30:15Z"
+    }
+  ],
+  "total": 5
+}
+```
+
+---
+
+### User Subscription & Credits (GET `/billing/subscription`)
+
+**Description:** Get current subscription status and remaining credits.
+
+**Success Response (200 OK):**
+
+```json
+{
+  "id": "sub_xyz789",
+  "plan": "FREE",
+  "status": "ACTIVE",
+  "creditsRemaining": 10,
+  "currentPeriodEnd": null
+}
+```
+
+---
+
+### Job Listing with Metadata (GET `/jobs`)
+
+**Enhancement:** Jobs now include `originalFilename` extracted from uploaded image storage key.
+
+**Success Response (200 OK):**
+
+```json
+{
+  "data": [
+    {
+      "id": "job-123-uuid",
+      "status": "COMPLETED",
+      "mode": "ecommerce-pro",
+      "originalFilename": "product-photo.jpg",
+      "resultUrl": "https://s3.amazonaws.com/...",
+      "createdAt": "2026-01-15T12:00:00Z"
+    }
+  ],
+  "total": 42
 }
 ```
 

@@ -58,3 +58,10 @@ export class JobInvalidStateError extends Error {
     this.name = 'JobInvalidStateError';
   }
 }
+
+export class QueryParameterRequiredError extends Error {
+  constructor(paramName: string) {
+    super(`Query parameter "${paramName}" is required`);
+    this.name = 'QueryParameterRequiredError';
+  }
+}

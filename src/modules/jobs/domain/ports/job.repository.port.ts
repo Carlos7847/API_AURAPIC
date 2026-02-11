@@ -42,5 +42,16 @@ export abstract class JobRepositoryPort {
    */
   abstract incrementAttempts(id: string): Promise<Job>;
 
+  /**
+   * Returns job counts grouped by status for a user.
+   * Single query to avoid N+1 API calls pattern.
+   */
+  abstract countByUserIdGroupedByStatus(userId: string): Promise<{
+    completed: number;
+    failed: number;
+    processing: number;
+    queued: number;
+  }>;
+
   abstract delete(id: string): Promise<void>;
 }

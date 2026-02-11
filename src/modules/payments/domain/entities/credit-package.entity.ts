@@ -7,6 +7,7 @@ export interface CreditPackageProps {
   active: boolean;
   description: string | null;
   metadata: Record<string, unknown> | null;
+  features: readonly string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -49,6 +50,10 @@ export class CreditPackage {
 
   get metadata(): Record<string, unknown> | null {
     return this.props.metadata;
+  }
+
+  get features(): readonly string[] {
+    return this.props.features;
   }
 
   // Business Logic

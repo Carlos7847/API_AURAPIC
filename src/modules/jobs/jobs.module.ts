@@ -79,6 +79,7 @@ import { JobsProcessor } from './infrastructure/http/jobs.processor';
         aiProcessor: AiProcessorServicePort,
         deductCredit: DeductCreditUseCase,
         refundCredit: RefundCreditUseCase,
+        imageAssetRepo: ImageAssetRepositoryPort,
         logger: LoggerPort,
       ) => {
         return new CreateJobUseCase(
@@ -87,6 +88,7 @@ import { JobsProcessor } from './infrastructure/http/jobs.processor';
           aiProcessor,
           deductCredit,
           refundCredit,
+          imageAssetRepo,
           logger,
         );
       },
@@ -96,6 +98,7 @@ import { JobsProcessor } from './infrastructure/http/jobs.processor';
         AiProcessorServicePort,
         DeductCreditUseCase,
         RefundCreditUseCase,
+        ImageAssetRepositoryPort,
         LoggerPort,
       ],
     },

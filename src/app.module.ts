@@ -4,6 +4,7 @@ import {
   NestModule,
   RequestMethod,
 } from '@nestjs/common';
+import { IncomingMessage, ServerResponse } from 'http';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './shared/persistence/prisma/prisma.module';
@@ -13,6 +14,7 @@ import { JobsModule } from './modules/jobs/jobs.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LoggerModule } from './shared/logger/logger.module';
 import { EventsModule } from './shared/events/events.module';
@@ -33,6 +35,47 @@ import { LoggerModule as PinoLoggerModule } from 'nestjs-pino';
     ConfigModule.forRoot({ isGlobal: true, validate }),
     PinoLoggerModule.forRoot({
       pinoHttp: {
+        transport: (() => {
+          try {
+            require.resolve('pino-pretty');
+            return {
+              target: 'pino-pretty',
+              options: {
+                colorize: true,
+                levelFirst: true,
+                translateTime: 'HH:MM:ss',
+                ignore: 'pid,hostname,req.remoteAddress,req.remotePort',
+                singleLine: false,
+                messageFormat: '{context} {msg}',
+              },
+            };
+          } catch {
+            return undefined; // pino-pretty not available, use JSON
+          }
+        })(),
+        level: process.env.LOG_LEVEL || 'info',
+        // Reduce noise from HTTP logs
+        autoLogging: {
+          ignore: (req) =>
+            req.url === '/health' || (req.url?.startsWith('/health/') ?? false),
+          // Only log errors and warnings for HTTP requests
+          ...(process.env.NODE_ENV !== 'production' && {
+            ignorePaths: ['/api/v1/jobs'], // Opcional: silenciar rutas específicas
+          }),
+        },
+        // Clean up logs by removing verbose headers
+        serializers: {
+          req: (req: IncomingMessage & { id?: string; query?: unknown }) => ({
+            id: req.id,
+            method: req.method,
+            url: req.url,
+            query: req.query,
+            // remoteAddress: req.remoteAddress, // Uncomment if IP logging is needed
+          }),
+          res: (res: ServerResponse) => ({
+            statusCode: res.statusCode,
+          }),
+        },
         redact: {
           paths: [
             'req.headers.authorization',
@@ -55,6 +98,7 @@ import { LoggerModule as PinoLoggerModule } from 'nestjs-pino';
     BillingModule,
     AdminModule,
     PaymentsModule,
+    DashboardModule,
     BullModule.forRootAsync({
       imports: [EnvironmentConfigModule, LoggerModule],
       inject: [EnvironmentConfigService],

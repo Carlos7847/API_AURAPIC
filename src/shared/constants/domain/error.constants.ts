@@ -27,7 +27,16 @@ export const SystemErrorCodes = {
   CONFLICT_DUPLICATE_ENTRY: 'CONFLICT_DUPLICATE_ENTRY',
   RESOURCE_NOT_FOUND: 'RESOURCE_NOT_FOUND',
   TIMEOUT: 'SYS_TIMEOUT',
+  QUERY_PARAM_REQUIRED: 'QUERY_PARAM_REQUIRED',
 } as const;
 
 export type SystemErrorCode =
   (typeof SystemErrorCodes)[keyof typeof SystemErrorCodes];
+
+export const AuthErrorCodes = {
+  SESSION_NOT_FOUND: 'AUTH_SESSION_NOT_FOUND',
+  UNAUTHORIZED_SESSION_ACCESS: 'AUTH_UNAUTHORIZED_SESSION_ACCESS',
+} as const;
+
+export type AuthErrorCode =
+  (typeof AuthErrorCodes)[keyof typeof AuthErrorCodes];

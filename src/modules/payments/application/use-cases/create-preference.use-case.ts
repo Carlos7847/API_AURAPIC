@@ -16,6 +16,7 @@ import {
 } from '../../domain/errors/payment.errors';
 import { PAYMENT_REFERENCE_PREFIX } from '../../domain/constants/payment.constants';
 import { PaymentStatus } from '../../domain/enums/payment-status.enum';
+import { LoggerPort } from 'src/shared/logger/domain/logger.port';
 
 export interface CreatePreferenceRequest {
   userId: string;
@@ -48,6 +49,7 @@ export class CreatePreferenceUseCase {
     private readonly providerRepository: PaymentProviderRepositoryPort,
     private readonly providerFactory: PaymentProviderFactoryPort,
     private readonly config: EnvironmentConfigService,
+    private readonly logger: LoggerPort,
   ) {}
 
   async execute(
@@ -111,7 +113,7 @@ export class CreatePreferenceUseCase {
       paymentId,
       request.userId,
       provider.id,
-      '', // preferenceId will be set after provider creation
+      `TEMP_${paymentId}`, // Temporary unique placeholder until MercadoPago responds
       packageEntity.price,
       packageEntity.credits,
       packageEntity.id,
@@ -134,6 +136,16 @@ export class CreatePreferenceUseCase {
       const frontendUrl = this.config.getFrontendUrl();
       const notificationUrl = this.config.getMercadoPagoNotificationUrl();
 
+      this.logger.debug(
+        `Creating preference for user ${request.userId}, package ${request.packageId}`,
+        CreatePreferenceUseCase.name,
+      );
+
+      this.logger.debug(
+        `URLs - Frontend: ${frontendUrl}, Notification: ${notificationUrl}`,
+        CreatePreferenceUseCase.name,
+      );
+
       const preference = await adapter.createPreference({
         title: `${packageEntity.name} - ${packageEntity.credits} créditos`,
         description: packageEntity.description || undefined,
@@ -142,9 +154,12 @@ export class CreatePreferenceUseCase {
         currency: packageEntity.currency,
         externalReference,
         backUrls: {
-          success: request.successUrl || `${frontendUrl}/payment/success`,
-          failure: request.failureUrl || `${frontendUrl}/payment/failure`,
-          pending: request.pendingUrl || `${frontendUrl}/payment/pending`,
+          success:
+            request.successUrl?.trim() || `${frontendUrl}/payment/success`,
+          failure:
+            request.failureUrl?.trim() || `${frontendUrl}/payment/failure`,
+          pending:
+            request.pendingUrl?.trim() || `${frontendUrl}/payment/pending`,
         },
         notificationUrl,
         metadata: {

@@ -89,6 +89,26 @@ export class Payment {
     return this.props.metadata;
   }
 
+  get description(): string | null {
+    return this.props.description;
+  }
+
+  get externalReference(): string | null {
+    return this.props.externalReference;
+  }
+
+  get paymentMethodId(): string | null {
+    return this.props.paymentMethodId;
+  }
+
+  get paymentTypeId(): string | null {
+    return this.props.paymentTypeId;
+  }
+
+  get idempotencyKey(): string | null {
+    return this.props.idempotencyKey;
+  }
+
   // Business Logic
 
   /**

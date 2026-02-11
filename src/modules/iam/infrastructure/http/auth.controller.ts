@@ -1,11 +1,13 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   HttpCode,
   HttpStatus,
   Ip,
+  Param,
   Post,
   Request,
   UseGuards,
@@ -23,7 +25,9 @@ import { ActiveUser } from '../decorators/active-user.decorator';
 import type { ActiveUserData } from '../../domain/interfaces/active-user.interface';
 import { ForgotPasswordUseCase } from '../../application/use-cases/forgot-password.use-case';
 import { ResetPasswordUseCase } from '../../application/use-cases/reset-password.use-case';
+import { ChangePasswordUseCase } from '../../application/use-cases/change-password.use-case';
 import { ResetPasswordDto } from '../../application/dtos/reset-password.dto';
+import { ChangePasswordDto } from '../../application/dtos/change-password.dto';
 import { Throttle } from '@nestjs/throttler';
 import {
   ApiBearerAuth,
@@ -42,6 +46,9 @@ import { UserRole } from '../../domain/enums/user-role.enum';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { VerifyEmailDto } from '../../application/dtos/verify-email.dto';
 import { VerifyEmailUseCase } from '../../application/use-cases/verify-email.use-case';
+import { ListUserSessionsUseCase } from '../../application/use-cases/list-user-sessions.use-case';
+import { RevokeSessionUseCase } from '../../application/use-cases/revoke-session.use-case';
+import { SessionResponseDto } from '../../application/dtos/responses/session.response.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -53,7 +60,10 @@ export class AuthController {
     private readonly logoutUseCase: LogoutUseCase,
     private readonly forgotPasswordUseCase: ForgotPasswordUseCase,
     private readonly resetPasswordUseCase: ResetPasswordUseCase,
+    private readonly changePasswordUseCase: ChangePasswordUseCase,
     private readonly verifyEmailUseCase: VerifyEmailUseCase,
+    private readonly listUserSessionsUseCase: ListUserSessionsUseCase,
+    private readonly revokeSessionUseCase: RevokeSessionUseCase,
   ) {}
 
   @ApiOperation({ summary: 'Registrar un nuevo usuario' })
@@ -164,6 +174,28 @@ export class AuthController {
     return { message: 'Contraseña restablecida exitosamente.' };
   }
 
+  @ApiOperation({ summary: 'Cambiar la contraseña del usuario autenticado' })
+  @ApiResponse({
+    status: 200,
+    description: 'Contraseña cambiada exitosamente.',
+    type: MessageResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Contraseña actual incorrecta o no autorizado.',
+  })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  async changePassword(
+    @ActiveUser() user: ActiveUserData,
+    @Body() dto: ChangePasswordDto,
+  ): Promise<MessageResponseDto> {
+    await this.changePasswordUseCase.execute(user.userId, dto);
+    return { message: 'Contraseña actualizada exitosamente.' };
+  }
+
   @ApiOperation({ summary: 'Obtener el perfil del usuario autenticado' })
   @ApiResponse({
     status: 200,
@@ -206,5 +238,40 @@ export class AuthController {
   async verifyEmail(@Body() dto: VerifyEmailDto) {
     await this.verifyEmailUseCase.execute(dto.token);
     return { message: 'Email verificado exitosamente.' };
+  }
+
+  @ApiOperation({ summary: 'Listar sesiones activas del usuario' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de sesiones activas.',
+    type: [SessionResponseDto],
+  })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get('sessions')
+  async listSessions(
+    @ActiveUser() user: ActiveUserData,
+  ): Promise<SessionResponseDto[]> {
+    const sessions = await this.listUserSessionsUseCase.execute(user.userId);
+    return sessions.map((s) => new SessionResponseDto(s));
+  }
+
+  @ApiOperation({ summary: 'Revocar una sesión específica' })
+  @ApiResponse({ status: 200, description: 'Sesión revocada exitosamente.' })
+  @ApiResponse({ status: 404, description: 'Sesión no encontrada.' })
+  @ApiResponse({
+    status: 403,
+    description: 'No tienes permiso para revocar esta sesión.',
+  })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Delete('sessions/:id')
+  @HttpCode(HttpStatus.OK)
+  async revokeSession(
+    @ActiveUser() user: ActiveUserData,
+    @Param('id') sessionId: string,
+  ): Promise<MessageResponseDto> {
+    await this.revokeSessionUseCase.execute(user.userId, sessionId);
+    return { message: 'Sesión revocada exitosamente.' };
   }
 }

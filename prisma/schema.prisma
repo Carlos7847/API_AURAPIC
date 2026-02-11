@@ -181,6 +181,7 @@ model CreditPackage {
   active      Boolean @default(true)
   description String?
   metadata    Json?
+  features    Json    @default("[]")
 
   payments Payment[]
 

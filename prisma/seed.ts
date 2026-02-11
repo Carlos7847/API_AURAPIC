@@ -19,6 +19,7 @@ async function main() {
         popular: false,
         discount: 0,
       },
+      features: ['10 Créditos', 'Calidad Estándar HD', '1 Usuario'],
     },
     {
       id: 'pkg-starter',
@@ -32,6 +33,12 @@ async function main() {
         popular: false,
         discount: 0,
       },
+      features: [
+        '25 Créditos',
+        'Calidad Estándar HD',
+        '1 Usuario',
+        'Soporte por Email',
+      ],
     },
     {
       id: 'pkg-pro',
@@ -46,6 +53,13 @@ async function main() {
         discount: 0.17, // 17% descuento (vs comprar individual)
         badge: 'Más popular',
       },
+      features: [
+        '60 Créditos',
+        'Exportación 4K Ultra-Res',
+        'Procesamiento por Lotes',
+        'Soporte Prioritario',
+        'Acceso API',
+      ],
     },
     {
       id: 'pkg-business',
@@ -60,6 +74,13 @@ async function main() {
         discount: 0.25, // 25% descuento
         badge: 'Mejor valor',
       },
+      features: [
+        '150 Créditos',
+        'Modelos Personalizados',
+        'Servidor Dedicado',
+        'Acuerdo SLA',
+        'Marca Blanca',
+      ],
     },
     {
       id: 'pkg-enterprise',
@@ -74,6 +95,15 @@ async function main() {
         discount: 0.35, // 35% descuento
         badge: 'Máximo ahorro',
       },
+      features: [
+        '500 Créditos',
+        'Modelos Personalizados',
+        'Servidor Dedicado',
+        'Acuerdo SLA',
+        'Marca Blanca',
+        'Soporte 24/7',
+        'Account Manager',
+      ],
     },
   ];
 
@@ -90,6 +120,7 @@ async function main() {
         description: pkg.description,
         active: pkg.active,
         metadata: pkg.metadata,
+        features: pkg.features,
       },
       create: pkg,
     });
@@ -99,12 +130,46 @@ async function main() {
     );
   }
 
-  console.log('✅ Seeding completed successfully!');
+  // Seed Payment Providers
+  console.log('Seeding Payment Providers...');
+
+  const providers = [
+    {
+      code: 'mercadopago',
+      name: 'Mercado Pago',
+      isActive: true,
+      displayConfig: {
+        supportedCurrencies: ['PEN', 'USD', 'ARS', 'BRL'],
+        logoUrl:
+          'https://http2.mlstatic.com/frontend-assets/ui-navigation/5.21.7/mercadolibre/logo__large_plus.png',
+        description:
+          'Acepta tarjetas, efectivo y más métodos de pago en América Latina',
+      },
+    },
+  ];
+
+  for (const provider of providers) {
+    const created = await prisma.paymentProvider.upsert({
+      where: { code: provider.code },
+      update: {
+        name: provider.name,
+        isActive: provider.isActive,
+        displayConfig: provider.displayConfig,
+      },
+      create: provider,
+    });
+
+    console.log(
+      `  ✓ ${created.name} (${created.code}) - Active: ${created.isActive}`,
+    );
+  }
+
+  console.log('WELL DONE! Seeding completed successfully!');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Seeding failed:');
+    console.error('JAJAJA Seeding failed:');
     console.error(e);
     process.exit(1);
   })

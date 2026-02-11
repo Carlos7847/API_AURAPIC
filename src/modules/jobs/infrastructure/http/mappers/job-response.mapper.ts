@@ -27,7 +27,23 @@ export class JobResponseMapper {
       completedAt: job.completedAt,
       resultUrl: job.resultUrl,
       errorMessage: job.errorMessage,
+      originalFilename: JobResponseMapper.extractOriginalFilename(job),
     });
+  }
+
+  /**
+   * Safely extracts originalFilename from job metadata
+   */
+  private static extractOriginalFilename(job: Job): string {
+    if (
+      job.meta &&
+      typeof job.meta === 'object' &&
+      'originalFilename' in job.meta &&
+      typeof job.meta.originalFilename === 'string'
+    ) {
+      return job.meta.originalFilename;
+    }
+    return `Job ${job.id.slice(0, 8)}`;
   }
 
   /**

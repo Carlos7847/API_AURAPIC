@@ -64,6 +64,16 @@ export class MercadoPagoAdapter implements PaymentProviderPort {
   async createPreference(
     data: CreatePreferenceData,
   ): Promise<PreferenceResponse> {
+    if (
+      !data.backUrls.success ||
+      !data.backUrls.failure ||
+      !data.backUrls.pending
+    ) {
+      throw new MercadoPagoApiError(
+        `Missing required back_urls: success=${data.backUrls.success}, failure=${data.backUrls.failure}, pending=${data.backUrls.pending}`,
+      );
+    }
+
     try {
       this.logger.debug(
         `Creating preference for: ${data.title} (${data.currency} ${data.unitPrice})`,
@@ -114,18 +124,55 @@ export class MercadoPagoAdapter implements PaymentProviderPort {
             : preference.sandbox_init_point || preference.init_point,
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      this.logger.error(`Failed to create preference: ${errorMessage}`);
+      // MercadoPago SDK throws plain objects, not Error instances
+      const errorMessage = this.extractErrorMessage(error);
+
+      this.logger.error(
+        `Failed to create preference: ${errorMessage}`,
+        MercadoPagoAdapter.name,
+      );
 
       if (error instanceof MercadoPagoApiError) {
         throw error;
       }
 
-      throw new MercadoPagoApiError(
-        error instanceof Error ? error.message : 'Unknown error',
-      );
+      throw new MercadoPagoApiError(errorMessage);
     }
+  }
+
+  /**
+   * Extract error message from various error types
+   * MercadoPago SDK throws plain objects with { message, error, status, cause }
+   */
+  private extractErrorMessage(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+
+    if (typeof error === 'object' && error !== null) {
+      const mpError = error as {
+        message?: string;
+        error?: string;
+        cause?: unknown;
+      };
+
+      // Try to get the most descriptive message
+      if (mpError.message) {
+        return mpError.message;
+      }
+      if (mpError.error) {
+        return mpError.error;
+      }
+
+      // Fallback to JSON stringify for debugging
+      try {
+        return JSON.stringify(error);
+      } catch {
+        return 'Unknown error (could not serialize)';
+      }
+    }
+
+    return String(error);
   }
 
   /**

@@ -18,6 +18,7 @@ export class JobResponseDto {
   completedAt?: Date;
   resultUrl?: string;
   errorMessage?: string;
+  originalFilename?: string;
 
   constructor(partial: Partial<JobResponseDto>) {
     Object.assign(this, partial);

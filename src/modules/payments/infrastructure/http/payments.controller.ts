@@ -8,6 +8,7 @@ import {
   HttpStatus,
   UseGuards,
   Headers,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -22,6 +23,7 @@ import { CreatePreferenceUseCase } from '../../application/use-cases/create-pref
 import { ProcessWebhookUseCase } from '../../application/use-cases/process-webhook.use-case';
 import { ListPackagesUseCase } from '../../application/use-cases/list-packages.use-case';
 import { ListPaymentProvidersUseCase } from '../../application/use-cases/list-payment-providers.use-case';
+import { ListUserPaymentsUseCase } from '../../application/use-cases/list-user-payments.use-case';
 import { LoggerPort } from 'src/shared/logger/domain/logger.port';
 import type { MercadoPagoWebhookDto } from './dto/mercadopago-webhook.dto';
 import { PAYMENT_PROVIDERS } from '../../domain/constants/payment.constants';
@@ -38,6 +40,7 @@ export class PaymentsController {
     private readonly processWebhookUseCase: ProcessWebhookUseCase,
     private readonly listPackagesUseCase: ListPackagesUseCase,
     private readonly listProvidersUseCase: ListPaymentProvidersUseCase,
+    private readonly listPaymentsUseCase: ListUserPaymentsUseCase,
     private readonly logger: LoggerPort,
   ) {}
 
@@ -101,7 +104,13 @@ export class PaymentsController {
             price: 20.0,
             currency: 'PEN',
             description: 'Ideal para usuarios regulares',
-            active: true,
+            // active: true,
+            pricePerCredit: 0.33,
+            features: [
+              '60 Créditos',
+              'Exportación 4K Ultra-Res',
+              'Procesamiento por Lotes',
+            ],
             metadata: {
               popular: true,
               discount: 0.17,
@@ -115,6 +124,35 @@ export class PaymentsController {
   @Get('packages')
   async getPackages() {
     return this.listPackagesUseCase.execute();
+  }
+
+  /**
+   * GET /payments
+   * List user payment history
+   */
+  @ApiOperation({
+    summary: 'List user payments',
+    description:
+      'Returns paginated list of payments made by the authenticated user.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Payments retrieved successfully',
+  })
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Get()
+  async listPayments(
+    @Req() req: AuthenticatedRequest,
+    @Query('limit') limit: number = 20,
+    @Query('offset') offset: number = 0,
+  ) {
+    const userId = req.user.userId;
+    return this.listPaymentsUseCase.execute(
+      userId,
+      Number(limit),
+      Number(offset),
+    );
   }
 
   /**

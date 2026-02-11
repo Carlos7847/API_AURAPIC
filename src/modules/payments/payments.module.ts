@@ -29,6 +29,7 @@ import { CreatePreferenceUseCase } from './application/use-cases/create-preferen
 import { ProcessWebhookUseCase } from './application/use-cases/process-webhook.use-case';
 import { ListPackagesUseCase } from './application/use-cases/list-packages.use-case';
 import { ListPaymentProvidersUseCase } from './application/use-cases/list-payment-providers.use-case';
+import { ListUserPaymentsUseCase } from './application/use-cases/list-user-payments.use-case';
 
 // Controllers
 import { PaymentsController } from './infrastructure/http/payments.controller';
@@ -91,7 +92,12 @@ import { PaymentsController } from './infrastructure/http/payments.controller';
     ProcessWebhookUseCase,
     ListPackagesUseCase,
     ListPaymentProvidersUseCase,
+    ListUserPaymentsUseCase,
   ],
-  exports: [PaymentRepositoryPort, CreditPackageRepositoryPort],
+  exports: [
+    PaymentRepositoryPort,
+    CreditPackageRepositoryPort,
+    ListUserPaymentsUseCase,
+  ],
 })
 export class PaymentsModule {}

@@ -125,4 +125,38 @@ export class PrismaJobRepository implements JobRepositoryPort {
       where: { id },
     });
   }
+
+  async countByUserIdGroupedByStatus(userId: string): Promise<{
+    completed: number;
+    failed: number;
+    processing: number;
+    queued: number;
+  }> {
+    const groupedCounts = await this.prisma.job.groupBy({
+      by: ['status'],
+      where: { userId },
+      _count: { status: true },
+    });
+
+    // Initialize all counts to 0
+    const result = {
+      completed: 0,
+      failed: 0,
+      processing: 0,
+      queued: 0,
+    };
+
+    // Map Prisma results to our structure
+    for (const group of groupedCounts) {
+      const count = group._count.status;
+      const status = String(group.status);
+
+      if (status === 'COMPLETED') result.completed = count;
+      else if (status === 'FAILED') result.failed = count;
+      else if (status === 'PROCESSING') result.processing = count;
+      else if (status === 'QUEUED') result.queued = count;
+    }
+
+    return result;
+  }
 }

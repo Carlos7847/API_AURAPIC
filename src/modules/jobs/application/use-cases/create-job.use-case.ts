@@ -17,6 +17,8 @@ import { Job } from '../../domain/entities/job.entity';
  * 3. Encola job para procesamiento asincrónico
  * 4. Retorna Job response
  */
+import { ImageAssetRepositoryPort } from 'src/modules/uploads/domain/ports/image-asset.repository.port';
+
 export class CreateJobUseCase {
   constructor(
     private readonly jobRepository: JobRepositoryPort,
@@ -24,6 +26,7 @@ export class CreateJobUseCase {
     private readonly aiProcessor: AiProcessorServicePort,
     private readonly deductCredit: DeductCreditUseCase,
     private readonly refundCredit: RefundCreditUseCase,
+    private readonly imageAssetRepository: ImageAssetRepositoryPort,
     private readonly logger: LoggerPort,
   ) {}
 
@@ -35,12 +38,34 @@ export class CreateJobUseCase {
       CreateJobUseCase.name,
     );
 
+    // Enrich metadata with original filename if not present
+    const meta = { ...dto.meta };
+    if (!meta.originalFilename) {
+      const imageAsset = await this.imageAssetRepository.findById(dto.imageId);
+      if (imageAsset) {
+        // storageKey format: kind/userId/timestamp-filename.ext
+        const parts = imageAsset.storageKey.split('-');
+        if (parts.length > 1) {
+          // Join back parts in case filename had hyphens, skipping the timestamp part (first part after last slash)
+          // Actually, finding the first hyphen after the last slash is safer.
+          // Simple heuristic: take everything after the first hyphen of the filename part
+          const filenamePart = imageAsset.storageKey.split('/').pop() || '';
+          const firstHyphenIndex = filenamePart.indexOf('-');
+          if (firstHyphenIndex !== -1) {
+            meta.originalFilename = filenamePart.substring(
+              firstHyphenIndex + 1,
+            );
+          }
+        }
+      }
+    }
+
     const job = await this.jobRepository.create({
       userId,
       imageId: dto.imageId,
       mode: dto.mode,
       prompt: dto.prompt,
-      meta: dto.meta,
+      meta,
     });
 
     await this.queueJob(job, userId, dto);

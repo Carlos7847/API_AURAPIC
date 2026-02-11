@@ -33,6 +33,7 @@ interface HttpExceptionResponse {
 @Injectable()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
+  private readonly isProduction = process.env.NODE_ENV === 'production';
 
   constructor(private readonly httpAdapterHost: HttpAdapterHost) {}
 
@@ -44,6 +45,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let httpStatus = HttpStatus.INTERNAL_SERVER_ERROR;
     let message: string | string[] = SystemErrorMessages.INTERNAL_SERVER_ERROR;
     let errorCode: string = SystemErrorMessages.INTERNAL_SERVER_ERROR;
+    let internalMessage: string | null = null; // For logging only
 
     // ----------------------------------------------------------------
     // ESTRATEGIA 1: Errores de Dominio (Mapeo Automático)
@@ -67,11 +69,27 @@ export class AllExceptionsFilter implements ExceptionFilter {
       const response = exception.getResponse();
 
       if (typeof response === 'string') {
-        message = response;
+        internalMessage = response;
       } else if (typeof response === 'object' && response !== null) {
         const responseObj = response as HttpExceptionResponse;
-        message = responseObj.message;
+        internalMessage = Array.isArray(responseObj.message)
+          ? responseObj.message.join(', ')
+          : responseObj.message;
         errorCode = responseObj.error || exception.name;
+      }
+
+      // OWASP A01/A04: Sanitize validation errors in production
+      // Don't expose field names or internal structure to clients
+      if (this.isProduction) {
+        message = this.getSanitizedMessage(httpStatus);
+      } else {
+        // In development, allow detailed messages for debugging
+        message = internalMessage || message;
+      }
+
+      // Always log the real error internally
+      if (internalMessage) {
+        this.logger.warn(`Validation/HTTP Error: ${internalMessage}`);
       }
     }
 
@@ -100,7 +118,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
         message = config.message!;
       } else {
         httpStatus = HttpStatus.BAD_REQUEST;
-        message = `Error de base de datos: ${exception.code}`;
+        // OWASP: Never expose Prisma error codes to clients
+        message = SystemErrorMessages.INTERNAL_SERVER_ERROR;
         errorCode = SystemErrorCodes.DB_ERROR;
         this.logger.error(
           `Prisma Error [${exception.code}]: ${exception.message}`,
@@ -137,5 +156,26 @@ export class AllExceptionsFilter implements ExceptionFilter {
     };
 
     httpAdapter.reply(ctx.getResponse(), responseBody, httpStatus);
+  }
+
+  /**
+   * Returns a user-friendly, sanitized error message based on HTTP status
+   * OWASP A01/A04: Prevents information disclosure
+   */
+  private getSanitizedMessage(status: HttpStatus): string {
+    const sanitizedMessages: Record<number, string> = {
+      [HttpStatus.BAD_REQUEST]: 'La solicitud contiene datos inválidos.',
+      [HttpStatus.UNAUTHORIZED]: 'No autorizado.',
+      [HttpStatus.FORBIDDEN]: 'Acceso denegado.',
+      [HttpStatus.NOT_FOUND]: 'Recurso no encontrado.',
+      [HttpStatus.CONFLICT]: 'Conflicto con el estado actual del recurso.',
+      [HttpStatus.UNPROCESSABLE_ENTITY]: 'No se pudo procesar la solicitud.',
+      [HttpStatus.TOO_MANY_REQUESTS]:
+        'Demasiadas solicitudes. Intente más tarde.',
+    };
+
+    return (
+      sanitizedMessages[status] || SystemErrorMessages.INTERNAL_SERVER_ERROR
+    );
   }
 }

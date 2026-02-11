@@ -26,11 +26,14 @@ import { LoggerService } from 'src/shared/logger/infrastructure/logger.service';
 import { JwtStrategy } from './infrastructure/strategies/jwt.strategy';
 import { EnvironmentConfigModule } from 'src/shared/config/infrastructure/environment-config.module';
 import { ResetPasswordUseCase } from './application/use-cases/reset-password.use-case';
+import { ChangePasswordUseCase } from './application/use-cases/change-password.use-case';
 import { ForgotPasswordUseCase } from './application/use-cases/forgot-password.use-case';
 import { EmailServicePort } from 'src/shared/email/domain/ports/email.service.port';
 import { DateServicePort } from 'src/shared/date/domain/date.service.port';
 import { EnvironmentConfigService } from 'src/shared/config/infrastructure/environment-config.service';
 import { VerifyEmailUseCase } from './application/use-cases/verify-email.use-case';
+import { ListUserSessionsUseCase } from './application/use-cases/list-user-sessions.use-case';
+import { RevokeSessionUseCase } from './application/use-cases/revoke-session.use-case';
 import { EmailModule } from 'src/shared/email/email.module';
 import { DateModule } from 'src/shared/date/date.module';
 import { BillingModule } from '../billing/billing.module';
@@ -212,6 +215,21 @@ import { SubscriptionRepositoryPort } from '../billing/domain/ports/subscription
       ],
     },
     {
+      provide: ChangePasswordUseCase,
+      useFactory: (
+        credRepo: AuthCredentialRepositoryPort,
+        hashingService: HashingServicePort,
+        sessionRepo: SessionRepositoryPort,
+      ) => {
+        return new ChangePasswordUseCase(credRepo, hashingService, sessionRepo);
+      },
+      inject: [
+        AuthCredentialRepositoryPort,
+        HashingServicePort,
+        SessionRepositoryPort,
+      ],
+    },
+    {
       provide: VerifyEmailUseCase,
       useFactory: (
         authCredentialRepository: AuthCredentialRepositoryPort,
@@ -232,6 +250,20 @@ import { SubscriptionRepositoryPort } from '../billing/domain/ports/subscription
         HashingServicePort,
         DateServicePort,
       ],
+    },
+    {
+      provide: ListUserSessionsUseCase,
+      useFactory: (sessionRepo: SessionRepositoryPort) => {
+        return new ListUserSessionsUseCase(sessionRepo);
+      },
+      inject: [SessionRepositoryPort],
+    },
+    {
+      provide: RevokeSessionUseCase,
+      useFactory: (sessionRepo: SessionRepositoryPort) => {
+        return new RevokeSessionUseCase(sessionRepo);
+      },
+      inject: [SessionRepositoryPort],
     },
   ],
   exports: [

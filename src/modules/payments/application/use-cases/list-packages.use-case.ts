@@ -1,16 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { CreditPackageRepositoryPort } from '../../domain/ports/credit-package.repository.port';
+import { CreditPackageResponseDto } from '../dtos/credit-package.response.dto';
 
 export interface ListPackagesResponse {
-  packages: {
-    id: string;
-    name: string;
-    credits: number;
-    price: number;
-    currency: string;
-    description: string | null;
-    pricePerCredit: number;
-  }[];
+  packages: CreditPackageResponseDto[];
 }
 
 /**
@@ -35,6 +28,8 @@ export class ListPackagesUseCase {
         currency: pkg.currency,
         description: pkg.description,
         pricePerCredit: pkg.getPricePerCredit(),
+        features: pkg.features,
+        metadata: pkg.metadata,
       })),
     };
   }

@@ -22,6 +22,9 @@ export class CreditPackageMapper {
       active: prisma.active,
       description: prisma.description,
       metadata: prisma.metadata as Record<string, unknown> | null,
+      features: Array.isArray(prisma.features)
+        ? (prisma.features as string[])
+        : [],
       createdAt: prisma.createdAt,
       updatedAt: prisma.updatedAt,
     };
@@ -44,6 +47,7 @@ export class CreditPackageMapper {
       active: props.active,
       description: props.description,
       metadata: props.metadata as never, // Prisma JsonValue compatibility
+      features: props.features as never, // Prisma JsonValue compatibility
       createdAt: props.createdAt,
       updatedAt: props.updatedAt,
     };

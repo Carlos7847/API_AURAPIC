@@ -17,7 +17,10 @@ import { PaymentApprovedHandler } from './application/event-handlers/payment-app
 // Guards
 import { CreditGuard } from './infrastructure/guards/credit.guard';
 
+import { BillingController } from './infrastructure/http/billing.controller';
+
 @Module({
+  controllers: [BillingController],
   providers: [
     // Repository binding
     {

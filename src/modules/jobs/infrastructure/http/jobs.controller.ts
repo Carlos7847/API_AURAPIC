@@ -23,6 +23,7 @@ import { JobResponseDto } from '../../application/dtos/job.response.dto';
 import { JwtAuthGuard } from '../../../iam/infrastructure/guards/jwt-auth.guard';
 import { CreditGuard } from '../../../billing/infrastructure/guards/credit.guard';
 import { JobStatus } from '../../domain/enums/job-status.enum';
+import { QueryParameterRequiredError } from '../../domain/errors/job.exceptions';
 import { LoggerPort } from 'src/shared/logger/domain/logger.port';
 import { JobResponseMapper } from './mappers/job-response.mapper';
 import {
@@ -104,7 +105,7 @@ export class JobsController {
     @Query('limit') limit?: number,
   ) {
     if (!query) {
-      throw new Error('Query parameter "q" is required');
+      throw new QueryParameterRequiredError('q');
     }
     return this.searchJobsUseCase.execute(query, limit || 5);
   }

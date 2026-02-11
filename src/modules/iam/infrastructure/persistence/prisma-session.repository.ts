@@ -48,6 +48,32 @@ export class PrismaSessionRepository implements SessionRepositoryPort {
     await this.prisma.session.deleteMany({ where: { userId } });
   }
 
+  async findByUserId(userId: string): Promise<Session[]> {
+    const sessions = await this.prisma.session.findMany({
+      where: {
+        userId,
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { lastActiveAt: 'desc' },
+    });
+    return sessions.map((s) => this.mapToDomain(s));
+  }
+
+  async findById(id: string): Promise<Session | null> {
+    const session = await this.prisma.session.findUnique({
+      where: { id },
+    });
+    return session ? this.mapToDomain(session) : null;
+  }
+
+  async revokeById(id: string): Promise<void> {
+    await this.prisma.session.update({
+      where: { id },
+      data: { revokedAt: new Date() },
+    });
+  }
+
   private mapToDomain(prismaSession: PrismaSession): Session {
     return new Session(
       prismaSession.id,
